@@ -64,42 +64,48 @@ export async function POST() {
     }
 
     // Auto-discover new apps from AdMob
-    try {
-      const admobApps = await listAdMobApps(userId, accountId);
-      for (const admobApp of admobApps) {
-        if (admobApp.platform !== "ANDROID") continue;
-        const packageName = admobApp.linkedAppInfo?.appStoreId;
-        if (!packageName) continue;
+    const admobApps = await listAdMobApps(userId, accountId);
+    console.log(`[AdMob] Found ${admobApps.length} apps in account`);
 
-        const { data: existing } = await supabase
-          .from("apps")
-          .select("id")
-          .eq("package_name", packageName)
-          .eq("user_id", userId)
-          .single();
+    for (const admobApp of admobApps) {
+      const packageName = admobApp.linkedAppInfo?.appStoreId;
+      if (!packageName) {
+        console.log(`[AdMob] Skipping app ${admobApp.appId} (no package name, platform: ${admobApp.platform})`);
+        continue;
+      }
 
-        if (!existing) {
-          const displayName =
-            admobApp.linkedAppInfo?.displayName ?? packageName;
-          const storeInfo = await fetchPlayStoreInfo(packageName);
-          const icon = storeInfo.icon ?? "📱";
+      const { data: existing } = await supabase
+        .from("apps")
+        .select("id")
+        .eq("package_name", packageName)
+        .eq("user_id", userId)
+        .single();
 
-          await supabase.from("apps").insert({
-            name: displayName,
-            package_name: packageName,
-            icon,
-            status: "published",
-            rating: 0,
-            downloads: 0,
-            revenue: 0,
-            impressions: 0,
-            ecpm: 0,
-            user_id: userId,
-          });
+      if (!existing) {
+        const displayName =
+          admobApp.linkedAppInfo?.displayName ?? packageName;
+        const storeInfo = await fetchPlayStoreInfo(packageName);
+        const icon = storeInfo.icon ?? "📱";
+
+        const { error: insertError } = await supabase.from("apps").insert({
+          name: displayName,
+          package_name: packageName,
+          icon,
+          status: "published",
+          rating: 0,
+          downloads: 0,
+          revenue: 0,
+          impressions: 0,
+          ecpm: 0,
+          user_id: userId,
+        });
+
+        if (insertError) {
+          console.error(`[AdMob] Failed to insert app ${packageName}:`, insertError);
+        } else {
+          console.log(`[AdMob] Discovered app: ${displayName} (${packageName})`);
         }
       }
-    } catch (e) {
-      console.error("[AdMob] Auto-discovery failed:", e);
     }
 
     // Fetch last 30 days
@@ -131,7 +137,35 @@ export async function POST() {
 
     const apps = appsData as { id: string }[] | null;
     const appId = apps?.[0]?.id;
-    if (!appId) throw new Error("No app found in database");
+
+    if (!appId) {
+      // No apps found — still mark connection as successful
+      console.log(`[AdMob] No apps found for user ${userId}. AdMob returned ${admobApps.length} apps.`);
+
+      if (logEntry) {
+        await supabase
+          .from("sync_log")
+          .update({ status: "success", ended_at: new Date().toISOString() })
+          .eq("id", logEntry.id);
+      }
+
+      await supabase
+        .from("api_connections")
+        .update({
+          last_sync: new Date().toISOString(),
+          status: "connected",
+          error_message: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("provider", "admob")
+        .eq("user_id", userId);
+
+      return NextResponse.json({
+        success: true,
+        warning: "No apps found in AdMob account. Make sure your apps are linked in AdMob.",
+        admobAppsFound: admobApps.length,
+      });
+    }
 
     // Parse report rows
     let totalRevenue = 0;
