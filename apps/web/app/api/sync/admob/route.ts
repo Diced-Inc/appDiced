@@ -187,9 +187,9 @@ export async function POST() {
       })
       .eq("id", appId);
 
-    // Notify if revenue changed
-    if (newRevenue !== oldRevenue) {
-      const diff = newRevenue - oldRevenue;
+    // Notify if revenue increased by at least $0.20
+    const diff = newRevenue - oldRevenue;
+    if (diff >= 0.20) {
       const sign = diff > 0 ? "+" : "";
       try {
         await sendPushToUser(userId, {

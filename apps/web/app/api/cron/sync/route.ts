@@ -225,9 +225,9 @@ export async function GET(req: NextRequest) {
           })
           .eq("id", appId);
 
-        // Notify user if revenue changed
-        if (newRevenue !== oldRevenue) {
-          const diff = newRevenue - oldRevenue;
+        // Notify user if revenue increased by at least $0.20
+        const diff = newRevenue - oldRevenue;
+        if (diff >= 0.20) {
           const sign = diff > 0 ? "+" : "";
           try {
             await sendPushToUser(userId, {
