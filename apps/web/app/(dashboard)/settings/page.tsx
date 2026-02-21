@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { Header } from "@/components/header";
 import { Card } from "@diced/ui/card";
 import { Badge } from "@diced/ui/badge";
@@ -15,11 +16,15 @@ interface ApiConnection {
 }
 
 export default async function SettingsPage() {
+  const { userId } = await auth();
+  if (!userId) return null;
+
   const supabase = getSupabaseAdmin();
 
   const { data } = await supabase
     .from("api_connections")
-    .select("provider, status, last_sync, error_message");
+    .select("provider, status, last_sync, error_message")
+    .eq("user_id", userId);
 
   const connections = data as ApiConnection[] | null;
 

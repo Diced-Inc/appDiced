@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { fetchPlayStoreInfo } from "@/lib/google/play-icon";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export async function POST() {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const supabase = getSupabaseAdmin();
 
   const { data: logData } = await supabase
     .from("sync_log")
-    .insert({ provider: "google_play", status: "running" } as Record<string, unknown>)
+    .insert({ provider: "google_play", status: "running", user_id: userId } as Record<string, unknown>)
     .select("id")
     .single();
 
@@ -16,7 +22,8 @@ export async function POST() {
   try {
     const { data } = await supabase
       .from("apps")
-      .select("id, package_name, icon");
+      .select("id, package_name, icon")
+      .eq("user_id", userId);
 
     const apps = data as { id: string; package_name: string; icon: string }[] | null;
 
@@ -25,7 +32,6 @@ export async function POST() {
         updated_at: new Date().toISOString(),
       };
 
-      // Fetch icon, rating, and downloads from Play Store page
       const info = await fetchPlayStoreInfo(app.package_name);
 
       if (info.icon && (!app.icon || !app.icon.startsWith("http"))) {
@@ -58,7 +64,8 @@ export async function POST() {
         error_message: null,
         updated_at: new Date().toISOString(),
       })
-      .eq("provider", "google_play");
+      .eq("provider", "google_play")
+      .eq("user_id", userId);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -82,7 +89,8 @@ export async function POST() {
         error_message: message,
         updated_at: new Date().toISOString(),
       })
-      .eq("provider", "google_play");
+      .eq("provider", "google_play")
+      .eq("user_id", userId);
 
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { exchangeAdMobCode } from "@/lib/google/admob";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export async function GET(req: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.redirect(
+      new URL("/sign-in", req.nextUrl.origin)
+    );
+  }
+
   const code = req.nextUrl.searchParams.get("code");
   const error = req.nextUrl.searchParams.get("error");
 
@@ -19,6 +27,7 @@ export async function GET(req: NextRequest) {
     await supabase.from("api_connections").upsert(
       {
         provider: "admob",
+        user_id: userId,
         status: "connected",
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
@@ -28,7 +37,7 @@ export async function GET(req: NextRequest) {
         error_message: null,
         updated_at: new Date().toISOString(),
       } as Record<string, unknown>,
-      { onConflict: "provider" }
+      { onConflict: "provider,user_id" }
     );
 
     return NextResponse.redirect(

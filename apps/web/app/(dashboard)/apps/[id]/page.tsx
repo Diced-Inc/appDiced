@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { notFound } from "next/navigation";
 import { Header } from "@/components/header";
 import { KpiCard } from "@diced/ui/kpi-card";
@@ -30,8 +31,11 @@ export default async function AppDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const { userId } = await auth();
+  if (!userId) return notFound();
+
   const { id } = await params;
-  const app = await getAppById(id);
+  const app = await getAppById(id, userId);
 
   if (!app) return notFound();
 

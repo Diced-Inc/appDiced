@@ -69,12 +69,13 @@ interface TokenRow {
   token_expiry: string | null;
 }
 
-export async function getAdMobAccessToken(): Promise<string | null> {
+export async function getAdMobAccessToken(userId: string): Promise<string | null> {
   const supabase = getSupabaseAdmin();
   const { data: raw } = await supabase
     .from("api_connections")
     .select("access_token, refresh_token, token_expiry")
     .eq("provider", "admob")
+    .eq("user_id", userId)
     .single();
 
   const data = raw as TokenRow | null;
@@ -98,7 +99,8 @@ export async function getAdMobAccessToken(): Promise<string | null> {
         status: "connected",
         updated_at: new Date().toISOString(),
       })
-      .eq("provider", "admob");
+      .eq("provider", "admob")
+      .eq("user_id", userId);
 
     return tokens.access_token;
   } catch (error) {
@@ -109,20 +111,21 @@ export async function getAdMobAccessToken(): Promise<string | null> {
         error_message: error instanceof Error ? error.message : String(error),
         updated_at: new Date().toISOString(),
       })
-      .eq("provider", "admob");
+      .eq("provider", "admob")
+      .eq("user_id", userId);
     return null;
   }
 }
 
 export async function fetchAdMobReport(
+  userId: string,
   accountId: string,
   startDate: { year: number; month: number; day: number },
   endDate: { year: number; month: number; day: number }
 ) {
-  const token = await getAdMobAccessToken();
+  const token = await getAdMobAccessToken(userId);
   if (!token) throw new Error("No valid AdMob token");
 
-  // accountId can be "accounts/pub-XXX" or "pub-XXX"
   const cleanId = accountId.replace(/^accounts\//, "");
   const res = await fetch(
     `${ADMOB_API_BASE}/accounts/${cleanId}/networkReport:generate`,
@@ -147,8 +150,8 @@ export async function fetchAdMobReport(
   return res.json();
 }
 
-export async function listAdMobAccounts(): Promise<string | null> {
-  const token = await getAdMobAccessToken();
+export async function listAdMobAccounts(userId: string): Promise<string | null> {
+  const token = await getAdMobAccessToken(userId);
   if (!token) return null;
 
   const res = await fetch(`${ADMOB_API_BASE}/accounts`, {
@@ -172,9 +175,10 @@ export interface AdMobApp {
 }
 
 export async function listAdMobApps(
+  userId: string,
   accountId: string
 ): Promise<AdMobApp[]> {
-  const token = await getAdMobAccessToken();
+  const token = await getAdMobAccessToken(userId);
   if (!token) return [];
 
   const cleanId = accountId.replace(/^accounts\//, "");

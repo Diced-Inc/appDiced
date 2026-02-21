@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { Header } from "@/components/header";
 import { AppsTable } from "@/components/apps-table";
 import { getApps } from "@/lib/data";
@@ -5,7 +6,10 @@ import { getApps } from "@/lib/data";
 export const dynamic = "force-dynamic";
 
 export default async function AppsPage() {
-  const apps = await getApps();
+  const { userId } = await auth();
+  if (!userId) return null;
+
+  const apps = await getApps(userId);
 
   return (
     <div>

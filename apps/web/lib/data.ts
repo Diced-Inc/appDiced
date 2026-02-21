@@ -35,11 +35,12 @@ function mapAppRow(row: AppRow): DicedApp {
   };
 }
 
-export async function getApps(): Promise<DicedApp[]> {
+export async function getApps(userId: string): Promise<DicedApp[]> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("apps")
     .select("id, name, package_name, icon, status, rating, downloads, revenue, impressions, ecpm")
+    .eq("user_id", userId)
     .order("name");
 
   if (error) {
@@ -50,12 +51,13 @@ export async function getApps(): Promise<DicedApp[]> {
   return ((data as AppRow[]) ?? []).map(mapAppRow);
 }
 
-export async function getAppById(id: string): Promise<DicedApp | null> {
+export async function getAppById(id: string, userId: string): Promise<DicedApp | null> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("apps")
     .select("id, name, package_name, icon, status, rating, downloads, revenue, impressions, ecpm")
     .eq("id", id)
+    .eq("user_id", userId)
     .single();
 
   if (error || !data) return null;
@@ -63,14 +65,24 @@ export async function getAppById(id: string): Promise<DicedApp | null> {
   return mapAppRow(data as AppRow);
 }
 
-export async function getDailyRevenue(days: number = 30): Promise<DailyRevenue[]> {
+export async function getDailyRevenue(userId: string, days: number = 30): Promise<DailyRevenue[]> {
   const supabase = getSupabaseAdmin();
   const since = new Date();
   since.setDate(since.getDate() - days);
 
+  // Get user's app IDs first, then filter revenue
+  const { data: appsData } = await supabase
+    .from("apps")
+    .select("id")
+    .eq("user_id", userId);
+
+  const appIds = (appsData as { id: string }[] | null)?.map((a) => a.id) ?? [];
+  if (appIds.length === 0) return [];
+
   const { data, error } = await supabase
     .from("daily_revenue")
     .select("date, revenue, app_id")
+    .in("app_id", appIds)
     .gte("date", since.toISOString().split("T")[0])
     .order("date", { ascending: true });
 
@@ -86,8 +98,8 @@ export async function getDailyRevenue(days: number = 30): Promise<DailyRevenue[]
   }));
 }
 
-export async function getSummary(): Promise<DashboardSummary> {
-  const apps = await getApps();
+export async function getSummary(userId: string): Promise<DashboardSummary> {
+  const apps = await getApps(userId);
 
   const totalRevenue = apps.reduce((sum, a) => sum + a.revenue, 0);
   const totalDownloads = apps.reduce((sum, a) => sum + a.downloads, 0);

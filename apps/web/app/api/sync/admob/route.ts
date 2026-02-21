@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import {
   fetchAdMobReport,
   listAdMobAccounts,
   listAdMobApps,
 } from "@/lib/google/admob";
-import { fetchPlayStoreIcon } from "@/lib/google/play-icon";
+import { fetchPlayStoreInfo } from "@/lib/google/play-icon";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { sendPushToUser } from "@/lib/push";
 
 interface AdMobReportRow {
   dimensionValues?: { DATE?: { value?: string } };
@@ -16,42 +18,48 @@ interface AdMobReportRow {
 }
 
 export async function POST() {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const supabase = getSupabaseAdmin();
 
   const { data: logData } = await supabase
     .from("sync_log")
-    .insert({ provider: "admob", status: "running" } as Record<string, unknown>)
+    .insert({ provider: "admob", status: "running", user_id: userId } as Record<string, unknown>)
     .select("id")
     .single();
 
   const logEntry = logData as { id: string } | null;
 
   try {
-    // Get AdMob account ID
+    // Get AdMob account ID for this user
     const { data: connData } = await supabase
       .from("api_connections")
       .select("config")
       .eq("provider", "admob")
+      .eq("user_id", userId)
       .single();
 
     const connection = connData as { config: Record<string, string> } | null;
     let accountId = connection?.config?.account_id;
 
-    // Auto-discover account if not configured
     if (!accountId) {
-      const account = await listAdMobAccounts();
+      const account = await listAdMobAccounts(userId);
       if (!account) throw new Error("No AdMob account found");
       accountId = account;
 
       await supabase
         .from("api_connections")
         .update({ config: { account_id: accountId } })
-        .eq("provider", "admob");
+        .eq("provider", "admob")
+        .eq("user_id", userId);
     }
 
     // Auto-discover new apps from AdMob
     try {
-      const admobApps = await listAdMobApps(accountId);
+      const admobApps = await listAdMobApps(userId, accountId);
       for (const admobApp of admobApps) {
         if (admobApp.platform !== "ANDROID") continue;
         const packageName = admobApp.linkedAppInfo?.appStoreId;
@@ -61,12 +69,14 @@ export async function POST() {
           .from("apps")
           .select("id")
           .eq("package_name", packageName)
+          .eq("user_id", userId)
           .single();
 
         if (!existing) {
           const displayName =
             admobApp.linkedAppInfo?.displayName ?? packageName;
-          const icon = (await fetchPlayStoreIcon(packageName)) ?? "📱";
+          const storeInfo = await fetchPlayStoreInfo(packageName);
+          const icon = storeInfo.icon ?? "📱";
 
           await supabase.from("apps").insert({
             name: displayName,
@@ -78,6 +88,7 @@ export async function POST() {
             revenue: 0,
             impressions: 0,
             ecpm: 0,
+            user_id: userId,
           });
         }
       }
@@ -91,6 +102,7 @@ export async function POST() {
     startDate.setDate(startDate.getDate() - 30);
 
     const report = await fetchAdMobReport(
+      userId,
       accountId,
       {
         year: startDate.getFullYear(),
@@ -104,10 +116,11 @@ export async function POST() {
       }
     );
 
-    // Get the Watchio app from Supabase
+    // Get user's apps
     const { data: appsData } = await supabase
       .from("apps")
       .select("id")
+      .eq("user_id", userId)
       .limit(1);
 
     const apps = appsData as { id: string }[] | null;
@@ -137,7 +150,6 @@ export async function POST() {
       totalRevenue += revenue;
       totalImpressions += impressionCount;
 
-      // Format date as YYYY-MM-DD
       const formattedDate = `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
 
       await supabase.from("daily_revenue").upsert(
@@ -150,23 +162,46 @@ export async function POST() {
       );
     }
 
-    // Update app totals
     const ecpm =
       totalImpressions > 0
         ? Math.round((totalRevenue / totalImpressions) * 1000 * 100) / 100
         : 0;
 
+    const newRevenue = Math.round(totalRevenue * 100) / 100;
+
+    // Get old revenue to detect changes
+    const { data: oldApp } = await supabase
+      .from("apps")
+      .select("revenue")
+      .eq("id", appId)
+      .single();
+    const oldRevenue = (oldApp as { revenue: number } | null)?.revenue ?? 0;
+
     await supabase
       .from("apps")
       .update({
-        revenue: Math.round(totalRevenue * 100) / 100,
+        revenue: newRevenue,
         impressions: totalImpressions,
         ecpm,
         updated_at: new Date().toISOString(),
       })
       .eq("id", appId);
 
-    // Update sync log
+    // Notify if revenue changed
+    if (newRevenue !== oldRevenue) {
+      const diff = newRevenue - oldRevenue;
+      const sign = diff > 0 ? "+" : "";
+      try {
+        await sendPushToUser(userId, {
+          title: "Receita Atualizada",
+          body: `Nova receita: $${newRevenue.toFixed(2)} (${sign}$${diff.toFixed(2)})`,
+          url: "/revenue",
+        });
+      } catch (e) {
+        console.error("[Push] Failed to send notification:", e);
+      }
+    }
+
     if (logEntry) {
       await supabase
         .from("sync_log")
@@ -182,7 +217,8 @@ export async function POST() {
         error_message: null,
         updated_at: new Date().toISOString(),
       })
-      .eq("provider", "admob");
+      .eq("provider", "admob")
+      .eq("user_id", userId);
 
     return NextResponse.json({ success: true, totalRevenue, totalImpressions });
   } catch (error) {

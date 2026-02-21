@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { Header } from "@/components/header";
 import { RevenueDashboard } from "@/components/revenue-dashboard";
 import { getApps, getDailyRevenue } from "@/lib/data";
@@ -5,9 +6,12 @@ import { getApps, getDailyRevenue } from "@/lib/data";
 export const dynamic = "force-dynamic";
 
 export default async function RevenuePage() {
+  const { userId } = await auth();
+  if (!userId) return null;
+
   const [apps, dailyRevenue] = await Promise.all([
-    getApps(),
-    getDailyRevenue(),
+    getApps(userId),
+    getDailyRevenue(userId),
   ]);
 
   return (
