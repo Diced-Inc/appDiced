@@ -17,9 +17,9 @@ export default async function OverviewPage() {
   return (
     <div>
       <Header title="Overview" />
-      <div className="space-y-6 p-6">
+      <div className="space-y-4 p-4 md:space-y-6 md:p-6">
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
           <KpiCard
             title="Total Apps"
             value={String(summary.totalApps)}
@@ -47,16 +47,16 @@ export default async function OverviewPage() {
         </div>
 
         {/* Charts + App List */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2">
-            <h2 className="mb-4 text-lg font-semibold font-heading">
+            <h2 className="mb-3 text-base font-semibold font-heading md:mb-4 md:text-lg">
               Revenue (Last 30 Days)
             </h2>
             <RevenueChart data={dailyRevenue} />
           </Card>
 
           <Card>
-            <h2 className="mb-4 text-lg font-semibold font-heading">
+            <h2 className="mb-3 text-base font-semibold font-heading md:mb-4 md:text-lg">
               App Status
             </h2>
             <AppStatusList apps={apps} />

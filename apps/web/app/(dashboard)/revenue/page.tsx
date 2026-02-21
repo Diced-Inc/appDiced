@@ -26,9 +26,9 @@ export default async function RevenuePage() {
   return (
     <div>
       <Header title="Revenue" />
-      <div className="space-y-6 p-6">
+      <div className="space-y-4 p-4 md:space-y-6 md:p-6">
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3">
           <KpiCard
             title="Total Revenue"
             value={`$${summary.totalRevenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
@@ -49,7 +49,7 @@ export default async function RevenuePage() {
         </div>
 
         {/* Charts */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-2">
           <Card>
             <h2 className="mb-4 text-lg font-semibold font-heading">
               Daily Revenue

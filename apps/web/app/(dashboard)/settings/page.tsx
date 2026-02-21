@@ -55,15 +55,15 @@ export default async function SettingsPage() {
   return (
     <div>
       <Header title="Settings" />
-      <div className="space-y-6 p-6">
+      <div className="space-y-4 p-4 md:space-y-6 md:p-6">
         {/* Google Play Connection */}
         <Card>
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold font-heading">
+              <h2 className="text-base font-semibold font-heading md:text-lg">
                 Google Play API
               </h2>
-              <p className="mt-1 text-sm text-zinc-400">
+              <p className="mt-1 text-xs text-zinc-400 md:text-sm">
                 Service account authentication. Provides reviews and app info.
               </p>
               {playConnection?.error_message && (
@@ -78,7 +78,7 @@ export default async function SettingsPage() {
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <Badge variant={statusVariant(playConnection?.status)}>
                 {statusLabel(playConnection?.status)}
               </Badge>
@@ -89,10 +89,10 @@ export default async function SettingsPage() {
 
         {/* AdMob Connection */}
         <Card>
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold font-heading">AdMob API</h2>
-              <p className="mt-1 text-sm text-zinc-400">
+              <h2 className="text-base font-semibold font-heading md:text-lg">AdMob API</h2>
+              <p className="mt-1 text-xs text-zinc-400 md:text-sm">
                 OAuth 2.0 authentication. Provides revenue, impressions, eCPM.
               </p>
               {admobConnection?.error_message && (
@@ -107,7 +107,7 @@ export default async function SettingsPage() {
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <Badge variant={statusVariant(admobConnection?.status)}>
                 {statusLabel(admobConnection?.status)}
               </Badge>
@@ -117,7 +117,7 @@ export default async function SettingsPage() {
               {admobAuthUrl && (
                 <a
                   href={admobAuthUrl}
-                  className="rounded-lg bg-violet-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-600"
+                  className="rounded-lg bg-violet-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-violet-600 md:px-4 md:py-2"
                 >
                   {admobConnection?.status === "connected"
                     ? "Reconnect"
@@ -135,8 +135,8 @@ export default async function SettingsPage() {
 
         {/* Manual Data Info */}
         <Card>
-          <h2 className="text-lg font-semibold font-heading">Manual Data</h2>
-          <p className="mt-1 text-sm text-zinc-400">
+          <h2 className="text-base font-semibold font-heading md:text-lg">Manual Data</h2>
+          <p className="mt-1 text-xs text-zinc-400 md:text-sm">
             Downloads, ratings, and other metrics that APIs cannot provide can be
             updated via the API at{" "}
             <code className="rounded bg-zinc-800 px-1 py-0.5 text-xs">

@@ -6,8 +6,8 @@ interface HeaderProps {
 
 export function Header({ title }: HeaderProps) {
   return (
-    <header className="flex h-16 items-center justify-between border-b border-white/5 px-6">
-      <h1 className="text-xl font-bold font-heading">{title}</h1>
+    <header className="flex h-14 items-center justify-between border-b border-white/5 px-4 md:h-16 md:px-6">
+      <h1 className="pl-10 text-lg font-bold font-heading md:pl-0 md:text-xl">{title}</h1>
       <UserButton
         appearance={{
           elements: {

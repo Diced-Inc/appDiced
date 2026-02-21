@@ -36,13 +36,13 @@ export default async function AppDetailPage({
   return (
     <div>
       <Header title={app.name} />
-      <div className="space-y-6 p-6">
+      <div className="space-y-4 p-4 md:space-y-6 md:p-6">
         {/* App Info */}
-        <div className="flex items-center gap-4">
-          <span className="text-4xl">{app.icon}</span>
-          <div>
-            <h2 className="text-2xl font-bold font-heading">{app.name}</h2>
-            <p className="text-sm text-zinc-400">{app.packageName}</p>
+        <div className="flex items-center gap-3 md:gap-4">
+          <span className="text-3xl md:text-4xl">{app.icon}</span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-xl font-bold font-heading md:text-2xl">{app.name}</h2>
+            <p className="truncate text-xs text-zinc-400 md:text-sm">{app.packageName}</p>
           </div>
           <Badge variant={statusVariant[app.status]}>
             {statusLabel[app.status]}
@@ -50,7 +50,7 @@ export default async function AppDetailPage({
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
           <KpiCard
             title="Rating"
             value={app.rating > 0 ? String(app.rating) : "N/A"}

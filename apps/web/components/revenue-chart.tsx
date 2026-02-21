@@ -17,7 +17,7 @@ interface RevenueChartProps {
 
 export function RevenueChart({ data }: RevenueChartProps) {
   return (
-    <div className="h-[300px] w-full">
+    <div className="h-[220px] w-full md:h-[300px]">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data}>
           <defs>

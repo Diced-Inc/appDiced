@@ -24,16 +24,16 @@ export function KpiCard({
   return (
     <Card>
       <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-zinc-400">{title}</p>
-          <p className="mt-2 text-3xl font-bold text-white font-heading">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-zinc-400 md:text-sm">{title}</p>
+          <p className="mt-1 truncate text-2xl font-bold text-white font-heading md:mt-2 md:text-3xl">
             {value}
           </p>
           {change && (
-            <p className={`mt-1 text-sm ${changeColor}`}>{change}</p>
+            <p className={`mt-1 text-xs md:text-sm ${changeColor}`}>{change}</p>
           )}
         </div>
-        <div className="rounded-xl bg-violet-500/10 p-3 text-violet-400">
+        <div className="ml-2 shrink-0 rounded-xl bg-violet-500/10 p-2 text-violet-400 md:p-3">
           {icon}
         </div>
       </div>
