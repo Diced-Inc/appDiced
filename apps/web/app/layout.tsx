@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Syne, DM_Sans } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
+import { dark } from "@clerk/themes";
 import "./globals.css";
 
 const syne = Syne({
@@ -22,7 +24,7 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
+  const content = (
     <html lang="pt-BR">
       <body
         className={`${syne.variable} ${dmSans.variable} font-body bg-surface text-white antialiased`}
@@ -30,5 +32,17 @@ export default function RootLayout({
         {children}
       </body>
     </html>
+  );
+
+  // Skip ClerkProvider when publishable key is not configured (e.g. during build)
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  if (!publishableKey || publishableKey === "pk_test_PLACEHOLDER") {
+    return content;
+  }
+
+  return (
+    <ClerkProvider appearance={{ baseTheme: dark }}>
+      {content}
+    </ClerkProvider>
   );
 }
