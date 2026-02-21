@@ -1,0 +1,9 @@
+{
+  "extends": "@diced/typescript-config/base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
+  },
+  "include": ["tailwind.config.ts"],
+  "exclude": ["node_modules"]
+}
