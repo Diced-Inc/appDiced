@@ -26,6 +26,20 @@ export async function POST() {
 
   const supabase = getSupabaseAdmin();
 
+  // Check if user has an AdMob connection before doing anything
+  const { data: connData } = await supabase
+    .from("api_connections")
+    .select("config, refresh_token")
+    .eq("provider", "admob")
+    .eq("user_id", userId)
+    .single();
+
+  const connection = connData as { config: Record<string, string>; refresh_token: string | null } | null;
+
+  if (!connection?.refresh_token) {
+    return NextResponse.json({ skipped: true, reason: "not_connected" });
+  }
+
   const { data: logData } = await supabase
     .from("sync_log")
     .insert({ provider: "admob", status: "running", user_id: userId } as Record<string, unknown>)
@@ -35,16 +49,7 @@ export async function POST() {
   const logEntry = logData as { id: string } | null;
 
   try {
-    // Get AdMob account ID for this user
-    const { data: connData } = await supabase
-      .from("api_connections")
-      .select("config")
-      .eq("provider", "admob")
-      .eq("user_id", userId)
-      .single();
-
-    const connection = connData as { config: Record<string, string> } | null;
-    let accountId = connection?.config?.account_id;
+    let accountId = connection.config?.account_id;
 
     if (!accountId) {
       const account = await listAdMobAccounts(userId);
