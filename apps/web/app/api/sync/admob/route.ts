@@ -158,6 +158,7 @@ export async function POST() {
         .eq("id", logEntry.id);
     }
 
+    console.error("[AdMob Sync Error]", message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

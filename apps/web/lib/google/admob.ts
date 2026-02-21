@@ -121,8 +121,10 @@ export async function fetchAdMobReport(
   const token = await getAdMobAccessToken();
   if (!token) throw new Error("No valid AdMob token");
 
+  // accountId can be "accounts/pub-XXX" or "pub-XXX"
+  const cleanId = accountId.replace(/^accounts\//, "");
   const res = await fetch(
-    `${ADMOB_API_BASE}/accounts/${accountId}/networkReport:generate`,
+    `${ADMOB_API_BASE}/accounts/${cleanId}/networkReport:generate`,
     {
       method: "POST",
       headers: {
