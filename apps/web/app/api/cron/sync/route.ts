@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { fetchPlayStoreInfo } from "@/lib/google/play-icon";
 import {
   fetchAdMobReport,
+  fetchAdMobCountryReport,
   listAdMobAccounts,
   listAdMobApps,
   getAdMobAccessToken,
@@ -239,6 +240,57 @@ export async function GET(req: NextRequest) {
             console.error(`[Cron] Push failed for ${userId}:`, e);
           }
         }
+      }
+
+      // Country revenue sync
+      try {
+        const countryReport = await fetchAdMobCountryReport(userId, accountId, {
+          year: startDate.getFullYear(),
+          month: startDate.getMonth() + 1,
+          day: startDate.getDate(),
+        }, {
+          year: endDate.getFullYear(),
+          month: endDate.getMonth() + 1,
+          day: endDate.getDate(),
+        });
+
+        const countryRows = Array.isArray(countryReport)
+          ? countryReport
+              .filter((item: ReportRow) => item.row)
+              .map((item: ReportRow) => item.row!)
+          : [];
+
+        const periodStart = startDate.toISOString().split("T")[0];
+        const periodEnd = endDate.toISOString().split("T")[0];
+
+        await supabase
+          .from("country_revenue")
+          .delete()
+          .eq("user_id", userId)
+          .eq("period_start", periodStart)
+          .eq("period_end", periodEnd);
+
+        for (const row of countryRows) {
+          const countryCode = (row.dimensionValues as Record<string, { value?: string }> | undefined)?.COUNTRY?.value;
+          const earningsMicros = row.metricValues?.ESTIMATED_EARNINGS?.microsValue;
+          const impressions = row.metricValues?.IMPRESSIONS?.integerValue;
+          if (!countryCode) continue;
+
+          const revenue = earningsMicros ? Number(earningsMicros) / 1_000_000 : 0;
+          const impressionCount = impressions ? Number(impressions) : 0;
+          if (revenue <= 0 && impressionCount <= 0) continue;
+
+          await supabase.from("country_revenue").insert({
+            user_id: userId,
+            country_code: countryCode,
+            revenue: Math.round(revenue * 100) / 100,
+            impressions: impressionCount,
+            period_start: periodStart,
+            period_end: periodEnd,
+          });
+        }
+      } catch (e) {
+        console.error(`[Cron] Country report failed for ${userId}:`, e);
       }
 
       await supabase

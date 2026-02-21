@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import type { DicedApp, DailyRevenue, DashboardSummary } from "./types";
+import type { DicedApp, DailyRevenue, DashboardSummary, CountryRevenue } from "./types";
 
 interface AppRow {
   id: string;
@@ -95,6 +95,33 @@ export async function getDailyRevenue(userId: string, days: number = 30): Promis
     date: row.date,
     revenue: Math.round(Number(row.revenue) * 100) / 100,
     appId: row.app_id,
+  }));
+}
+
+interface CountryRevenueRow {
+  country_code: string;
+  revenue: number;
+  impressions: number;
+}
+
+export async function getCountryRevenue(userId: string): Promise<CountryRevenue[]> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("country_revenue")
+    .select("country_code, revenue, impressions")
+    .eq("user_id", userId)
+    .order("revenue", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    console.error("Failed to fetch country revenue:", error);
+    return [];
+  }
+
+  return ((data as CountryRevenueRow[]) ?? []).map((row) => ({
+    countryCode: row.country_code,
+    revenue: Math.round(Number(row.revenue) * 100) / 100,
+    impressions: Number(row.impressions),
   }));
 }
 

@@ -19,6 +19,12 @@ export interface DailyRevenue {
   appId?: string;
 }
 
+export interface CountryRevenue {
+  countryCode: string;
+  revenue: number;
+  impressions: number;
+}
+
 export interface DashboardSummary {
   totalApps: number;
   totalRevenue: number;

@@ -1,18 +1,20 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { DicedApp, DailyRevenue } from "@/lib/types";
+import type { DicedApp, DailyRevenue, CountryRevenue } from "@/lib/types";
 import { KpiCard } from "@diced/ui/kpi-card";
 import { Card } from "@diced/ui/card";
 import { RevenueChart } from "@/components/revenue-chart";
 import { RevenueByAppChart } from "@/components/revenue-by-app-chart";
+import { CountryRevenueTable } from "@/components/country-revenue-table";
 
 interface RevenueDashboardProps {
   apps: DicedApp[];
   dailyRevenue: DailyRevenue[];
+  countryRevenue: CountryRevenue[];
 }
 
-export function RevenueDashboard({ apps, dailyRevenue }: RevenueDashboardProps) {
+export function RevenueDashboard({ apps, dailyRevenue, countryRevenue }: RevenueDashboardProps) {
   const [selectedAppId, setSelectedAppId] = useState<string>("all");
 
   const filteredRevenue = useMemo(() => {
@@ -118,6 +120,14 @@ export function RevenueDashboard({ apps, dailyRevenue }: RevenueDashboardProps) 
           <RevenueByAppChart apps={filteredApps} />
         </Card>
       </div>
+
+      {/* Top Countries */}
+      <Card>
+        <h2 className="mb-4 text-lg font-semibold font-heading">
+          Top Países
+        </h2>
+        <CountryRevenueTable data={countryRevenue} />
+      </Card>
     </>
   );
 }

@@ -56,16 +56,17 @@ export async function POST() {
         .eq("id", logEntry.id);
     }
 
-    await supabase
-      .from("api_connections")
-      .update({
+    await supabase.from("api_connections").upsert(
+      {
+        provider: "google_play",
+        user_id: userId,
         last_sync: new Date().toISOString(),
         status: "connected",
         error_message: null,
         updated_at: new Date().toISOString(),
-      })
-      .eq("provider", "google_play")
-      .eq("user_id", userId);
+      } as Record<string, unknown>,
+      { onConflict: "provider,user_id" }
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -82,15 +83,16 @@ export async function POST() {
         .eq("id", logEntry.id);
     }
 
-    await supabase
-      .from("api_connections")
-      .update({
+    await supabase.from("api_connections").upsert(
+      {
+        provider: "google_play",
+        user_id: userId,
         status: "error",
         error_message: message,
         updated_at: new Date().toISOString(),
-      })
-      .eq("provider", "google_play")
-      .eq("user_id", userId);
+      } as Record<string, unknown>,
+      { onConflict: "provider,user_id" }
+    );
 
     return NextResponse.json({ error: message }, { status: 500 });
   }

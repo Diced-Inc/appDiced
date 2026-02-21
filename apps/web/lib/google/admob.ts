@@ -150,6 +150,39 @@ export async function fetchAdMobReport(
   return res.json();
 }
 
+export async function fetchAdMobCountryReport(
+  userId: string,
+  accountId: string,
+  startDate: { year: number; month: number; day: number },
+  endDate: { year: number; month: number; day: number }
+) {
+  const token = await getAdMobAccessToken(userId);
+  if (!token) throw new Error("No valid AdMob token");
+
+  const cleanId = accountId.replace(/^accounts\//, "");
+  const res = await fetch(
+    `${ADMOB_API_BASE}/accounts/${cleanId}/networkReport:generate`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        reportSpec: {
+          dateRange: { startDate, endDate },
+          dimensions: ["COUNTRY"],
+          metrics: ["ESTIMATED_EARNINGS", "IMPRESSIONS"],
+          sortConditions: [{ metric: "ESTIMATED_EARNINGS", order: "DESCENDING" }],
+        },
+      }),
+    }
+  );
+
+  if (!res.ok) throw new Error(`AdMob country report failed: ${await res.text()}`);
+  return res.json();
+}
+
 export async function listAdMobAccounts(userId: string): Promise<string | null> {
   const token = await getAdMobAccessToken(userId);
   if (!token) return null;

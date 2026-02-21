@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import {
   fetchAdMobReport,
+  fetchAdMobCountryReport,
   listAdMobAccounts,
   listAdMobApps,
 } from "@/lib/google/admob";
@@ -10,7 +11,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { sendPushToUser } from "@/lib/push";
 
 interface AdMobReportRow {
-  dimensionValues?: { DATE?: { value?: string } };
+  dimensionValues?: { DATE?: { value?: string }; COUNTRY?: { value?: string } };
   metricValues?: {
     ESTIMATED_EARNINGS?: { microsValue?: string };
     IMPRESSIONS?: { integerValue?: string };
@@ -200,6 +201,65 @@ export async function POST() {
       } catch (e) {
         console.error("[Push] Failed to send notification:", e);
       }
+    }
+
+    // Sync country revenue data
+    try {
+      const countryReport = await fetchAdMobCountryReport(
+        userId,
+        accountId,
+        {
+          year: startDate.getFullYear(),
+          month: startDate.getMonth() + 1,
+          day: startDate.getDate(),
+        },
+        {
+          year: endDate.getFullYear(),
+          month: endDate.getMonth() + 1,
+          day: endDate.getDate(),
+        }
+      );
+
+      const countryRows: AdMobReportRow[] = Array.isArray(countryReport)
+        ? countryReport
+            .filter((item: { row?: unknown }) => item.row)
+            .map((item: { row: AdMobReportRow }) => item.row)
+        : [];
+
+      const periodStart = startDate.toISOString().split("T")[0];
+      const periodEnd = endDate.toISOString().split("T")[0];
+
+      // Delete old data for this period
+      await supabase
+        .from("country_revenue")
+        .delete()
+        .eq("user_id", userId)
+        .eq("period_start", periodStart)
+        .eq("period_end", periodEnd);
+
+      for (const row of countryRows) {
+        const countryCode = row.dimensionValues?.COUNTRY?.value;
+        const earningsMicros = row.metricValues?.ESTIMATED_EARNINGS?.microsValue;
+        const impressions = row.metricValues?.IMPRESSIONS?.integerValue;
+
+        if (!countryCode) continue;
+
+        const revenue = earningsMicros ? Number(earningsMicros) / 1_000_000 : 0;
+        const impressionCount = impressions ? Number(impressions) : 0;
+
+        if (revenue <= 0 && impressionCount <= 0) continue;
+
+        await supabase.from("country_revenue").insert({
+          user_id: userId,
+          country_code: countryCode,
+          revenue: Math.round(revenue * 100) / 100,
+          impressions: impressionCount,
+          period_start: periodStart,
+          period_end: periodEnd,
+        });
+      }
+    } catch (e) {
+      console.error("[AdMob] Country report sync failed:", e);
     }
 
     if (logEntry) {
