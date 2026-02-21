@@ -68,11 +68,13 @@ export async function POST() {
     console.log(`[AdMob] Found ${admobApps.length} apps in account`);
 
     for (const admobApp of admobApps) {
-      const packageName = admobApp.linkedAppInfo?.appStoreId;
-      if (!packageName) {
-        console.log(`[AdMob] Skipping app ${admobApp.appId} (no package name, platform: ${admobApp.platform})`);
-        continue;
-      }
+      const packageName = admobApp.linkedAppInfo?.appStoreId ?? admobApp.appId;
+      const displayName =
+        admobApp.linkedAppInfo?.displayName ??
+        admobApp.manualAppInfo?.displayName ??
+        packageName;
+
+      console.log(`[AdMob] Processing app: ${displayName} (${packageName}, platform: ${admobApp.platform})`);
 
       const { data: existing } = await supabase
         .from("apps")
@@ -82,10 +84,12 @@ export async function POST() {
         .single();
 
       if (!existing) {
-        const displayName =
-          admobApp.linkedAppInfo?.displayName ?? packageName;
-        const storeInfo = await fetchPlayStoreInfo(packageName);
-        const icon = storeInfo.icon ?? "📱";
+        let icon = "📱";
+        // Only fetch Play Store info if we have a real package name
+        if (admobApp.linkedAppInfo?.appStoreId) {
+          const storeInfo = await fetchPlayStoreInfo(packageName);
+          icon = storeInfo.icon ?? "📱";
+        }
 
         const { error: insertError } = await supabase.from("apps").insert({
           name: displayName,

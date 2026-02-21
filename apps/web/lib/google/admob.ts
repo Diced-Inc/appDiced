@@ -201,6 +201,9 @@ export interface AdMobApp {
   name: string;
   appId: string;
   platform: string;
+  manualAppInfo?: {
+    displayName?: string;
+  };
   linkedAppInfo?: {
     appStoreId?: string;
     displayName?: string;
