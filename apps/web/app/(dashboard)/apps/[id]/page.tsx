@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Header } from "@/components/header";
 import { KpiCard } from "@diced/ui/kpi-card";
 import { Badge } from "@diced/ui/badge";
-import { mockApps } from "@/lib/mock-data";
+import { getAppById } from "@/lib/data";
 import type { AppStatus } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export default async function AppDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const app = mockApps.find((a) => a.id === id);
+  const app = await getAppById(id);
 
   if (!app) return notFound();
 

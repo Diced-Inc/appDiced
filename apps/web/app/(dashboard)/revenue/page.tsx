@@ -3,18 +3,25 @@ import { RevenueChart } from "@/components/revenue-chart";
 import { RevenueByAppChart } from "@/components/revenue-by-app-chart";
 import { KpiCard } from "@diced/ui/kpi-card";
 import { Card } from "@diced/ui/card";
-import { mockApps, mockDailyRevenue, mockSummary } from "@/lib/mock-data";
+import { getApps, getDailyRevenue, getSummary } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
-export default function RevenuePage() {
-  const totalImpressions = mockApps.reduce((sum, a) => sum + a.impressions, 0);
+export default async function RevenuePage() {
+  const [apps, dailyRevenue, summary] = await Promise.all([
+    getApps(),
+    getDailyRevenue(),
+    getSummary(),
+  ]);
+
+  const totalImpressions = apps.reduce((sum, a) => sum + a.impressions, 0);
+  const appsWithEcpm = apps.filter((a) => a.ecpm > 0);
   const avgEcpm =
-    Math.round(
-      (mockApps.filter((a) => a.ecpm > 0).reduce((sum, a) => sum + a.ecpm, 0) /
-        mockApps.filter((a) => a.ecpm > 0).length) *
-        100
-    ) / 100;
+    appsWithEcpm.length > 0
+      ? Math.round(
+          (appsWithEcpm.reduce((sum, a) => sum + a.ecpm, 0) / appsWithEcpm.length) * 100
+        ) / 100
+      : 0;
 
   return (
     <div>
@@ -24,8 +31,8 @@ export default function RevenuePage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <KpiCard
             title="Total Revenue"
-            value={`$${mockSummary.totalRevenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
-            change={`+${mockSummary.revenueChange}%`}
+            value={`$${summary.totalRevenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
+            change={summary.revenueChange !== 0 ? `+${summary.revenueChange}%` : undefined}
             changeType="positive"
             icon={<span className="text-lg">💰</span>}
           />
@@ -36,7 +43,7 @@ export default function RevenuePage() {
           />
           <KpiCard
             title="Avg eCPM"
-            value={`$${avgEcpm}`}
+            value={avgEcpm > 0 ? `$${avgEcpm}` : "N/A"}
             icon={<span className="text-lg">📊</span>}
           />
         </div>
@@ -47,14 +54,14 @@ export default function RevenuePage() {
             <h2 className="mb-4 text-lg font-semibold font-heading">
               Daily Revenue
             </h2>
-            <RevenueChart data={mockDailyRevenue} />
+            <RevenueChart data={dailyRevenue} />
           </Card>
 
           <Card>
             <h2 className="mb-4 text-lg font-semibold font-heading">
               Revenue by App
             </h2>
-            <RevenueByAppChart apps={mockApps} />
+            <RevenueByAppChart apps={apps} />
           </Card>
         </div>
       </div>
