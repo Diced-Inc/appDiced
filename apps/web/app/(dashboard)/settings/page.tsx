@@ -5,6 +5,7 @@ import { Badge } from "@diced/ui/badge";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getAdMobAuthUrl } from "@/lib/google/admob";
 import { SyncButton } from "@/components/sync-button";
+import { NotificationSettings } from "@/components/notification-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -136,6 +137,11 @@ export default async function SettingsPage() {
               )}
             </div>
           </div>
+        </Card>
+
+        {/* Push Notifications */}
+        <Card>
+          <NotificationSettings />
         </Card>
 
         {/* Manual Data Info */}
