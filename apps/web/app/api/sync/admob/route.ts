@@ -85,7 +85,6 @@ export async function POST() {
 
       if (!existing) {
         let icon = "📱";
-        // Only fetch Play Store info if we have a real package name
         if (admobApp.linkedAppInfo?.appStoreId) {
           const storeInfo = await fetchPlayStoreInfo(packageName);
           icon = storeInfo.icon ?? "📱";
@@ -105,7 +104,17 @@ export async function POST() {
         });
 
         if (insertError) {
-          console.error(`[AdMob] Failed to insert app ${packageName}:`, insertError);
+          console.error(`[AdMob] Insert failed for ${packageName}:`, insertError.message);
+          // If unique constraint on package_name alone, try updating existing row to claim it
+          const { error: claimError } = await supabase
+            .from("apps")
+            .update({ user_id: userId, updated_at: new Date().toISOString() })
+            .eq("package_name", packageName)
+            .is("user_id", null);
+
+          if (claimError) {
+            console.error(`[AdMob] Claim also failed for ${packageName}:`, claimError.message);
+          }
         } else {
           console.log(`[AdMob] Discovered app: ${displayName} (${packageName})`);
         }
