@@ -3,7 +3,8 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const ADMOB_API_BASE = "https://admob.googleapis.com/v1";
-const SCOPE = "https://www.googleapis.com/auth/admob.report";
+const SCOPE =
+  "https://www.googleapis.com/auth/admob.report https://www.googleapis.com/auth/admob.readonly";
 
 export function getAdMobAuthUrl(): string | null {
   const clientId = process.env.ADMOB_CLIENT_ID;
@@ -158,4 +159,32 @@ export async function listAdMobAccounts(): Promise<string | null> {
 
   const data = await res.json();
   return data.account?.[0]?.name ?? null;
+}
+
+export interface AdMobApp {
+  name: string;
+  appId: string;
+  platform: string;
+  linkedAppInfo?: {
+    appStoreId?: string;
+    displayName?: string;
+  };
+}
+
+export async function listAdMobApps(
+  accountId: string
+): Promise<AdMobApp[]> {
+  const token = await getAdMobAccessToken();
+  if (!token) return [];
+
+  const cleanId = accountId.replace(/^accounts\//, "");
+  const res = await fetch(
+    `${ADMOB_API_BASE}/accounts/${cleanId}/apps`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+
+  if (!res.ok) return [];
+
+  const data = await res.json();
+  return (data.apps ?? []) as AdMobApp[];
 }

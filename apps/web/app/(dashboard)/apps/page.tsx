@@ -9,7 +9,7 @@ export default async function AppsPage() {
 
   return (
     <div>
-      <Header title="Apps" />
+      <Header title="Aplicativos" />
       <div className="p-4 md:p-6">
         <AppsTable apps={apps} />
       </div>

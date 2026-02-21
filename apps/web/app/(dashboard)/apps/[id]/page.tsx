@@ -4,6 +4,8 @@ import { KpiCard } from "@diced/ui/kpi-card";
 import { Badge } from "@diced/ui/badge";
 import { getAppById } from "@/lib/data";
 import type { AppStatus } from "@/lib/types";
+import { AppIcon } from "@/components/app-icon";
+import { EditAppModal } from "@/components/edit-app-modal";
 
 export const dynamic = "force-dynamic";
 
@@ -16,11 +18,11 @@ const statusVariant: Record<AppStatus, "success" | "warning" | "error" | "info" 
 };
 
 const statusLabel: Record<AppStatus, string> = {
-  published: "Published",
-  in_review: "In Review",
-  suspended: "Suspended",
-  draft: "Draft",
-  removed: "Removed",
+  published: "Publicado",
+  in_review: "Em Revisão",
+  suspended: "Suspenso",
+  draft: "Rascunho",
+  removed: "Removido",
 };
 
 export default async function AppDetailPage({
@@ -39,20 +41,28 @@ export default async function AppDetailPage({
       <div className="space-y-4 p-4 md:space-y-6 md:p-6">
         {/* App Info */}
         <div className="flex items-center gap-3 md:gap-4">
-          <span className="text-3xl md:text-4xl">{app.icon}</span>
+          <AppIcon icon={app.icon} name={app.name} size="lg" />
           <div className="min-w-0 flex-1">
             <h2 className="text-xl font-bold font-heading md:text-2xl">{app.name}</h2>
             <p className="truncate text-xs text-zinc-400 md:text-sm">{app.packageName}</p>
           </div>
-          <Badge variant={statusVariant[app.status]}>
-            {statusLabel[app.status]}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={statusVariant[app.status]}>
+              {statusLabel[app.status]}
+            </Badge>
+            <EditAppModal
+              appId={app.id}
+              currentDownloads={app.downloads}
+              currentRating={app.rating}
+              currentStatus={app.status}
+            />
+          </div>
         </div>
 
         {/* KPIs */}
         <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
           <KpiCard
-            title="Rating"
+            title="Avaliação"
             value={app.rating > 0 ? String(app.rating) : "N/A"}
             icon={<span className="text-lg">⭐</span>}
           />
@@ -62,7 +72,7 @@ export default async function AppDetailPage({
             icon={<span className="text-lg">📥</span>}
           />
           <KpiCard
-            title="Revenue"
+            title="Receita"
             value={app.revenue > 0 ? `$${app.revenue.toFixed(2)}` : "N/A"}
             icon={<span className="text-lg">💰</span>}
           />

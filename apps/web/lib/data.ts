@@ -17,6 +17,7 @@ interface AppRow {
 interface RevenueRow {
   date: string;
   revenue: number;
+  app_id: string;
 }
 
 function mapAppRow(row: AppRow): DicedApp {
@@ -69,7 +70,7 @@ export async function getDailyRevenue(days: number = 30): Promise<DailyRevenue[]
 
   const { data, error } = await supabase
     .from("daily_revenue")
-    .select("date, revenue")
+    .select("date, revenue, app_id")
     .gte("date", since.toISOString().split("T")[0])
     .order("date", { ascending: true });
 
@@ -78,16 +79,10 @@ export async function getDailyRevenue(days: number = 30): Promise<DailyRevenue[]
     return [];
   }
 
-  const rows = (data as RevenueRow[]) ?? [];
-  const byDate = new Map<string, number>();
-  for (const row of rows) {
-    const existing = byDate.get(row.date) ?? 0;
-    byDate.set(row.date, existing + Number(row.revenue));
-  }
-
-  return Array.from(byDate.entries()).map(([date, revenue]) => ({
-    date,
-    revenue: Math.round(revenue * 100) / 100,
+  return ((data as RevenueRow[]) ?? []).map((row) => ({
+    date: row.date,
+    revenue: Math.round(Number(row.revenue) * 100) / 100,
+    appId: row.app_id,
   }));
 }
 

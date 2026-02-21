@@ -16,6 +16,7 @@ export interface DicedApp {
 export interface DailyRevenue {
   date: string;
   revenue: number;
+  appId?: string;
 }
 
 export interface DashboardSummary {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { AppStatus, DicedApp } from "@/lib/types";
 import { Badge } from "@diced/ui/badge";
+import { AppIcon } from "@/components/app-icon";
 
 const statusVariant: Record<AppStatus, "success" | "warning" | "error" | "info" | "default"> = {
   published: "success",
@@ -14,19 +15,19 @@ const statusVariant: Record<AppStatus, "success" | "warning" | "error" | "info" 
 };
 
 const statusLabel: Record<AppStatus, string> = {
-  published: "Published",
-  in_review: "In Review",
-  suspended: "Suspended",
-  draft: "Draft",
-  removed: "Removed",
+  published: "Publicado",
+  in_review: "Em Revisão",
+  suspended: "Suspenso",
+  draft: "Rascunho",
+  removed: "Removido",
 };
 
 const filters: { label: string; value: AppStatus | "all" }[] = [
-  { label: "All", value: "all" },
-  { label: "Published", value: "published" },
-  { label: "In Review", value: "in_review" },
-  { label: "Suspended", value: "suspended" },
-  { label: "Draft", value: "draft" },
+  { label: "Todos", value: "all" },
+  { label: "Publicados", value: "published" },
+  { label: "Em Revisão", value: "in_review" },
+  { label: "Suspensos", value: "suspended" },
+  { label: "Rascunhos", value: "draft" },
 ];
 
 interface AppsTableProps {
@@ -67,7 +68,7 @@ export function AppsTable({ apps }: AppsTableProps) {
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-xl">{app.icon}</span>
+                <AppIcon icon={app.icon} name={app.name} size="sm" />
                 <div>
                   <p className="font-medium text-white">{app.name}</p>
                   <p className="text-xs text-zinc-500">{app.packageName}</p>
@@ -79,7 +80,7 @@ export function AppsTable({ apps }: AppsTableProps) {
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2 text-center">
               <div>
-                <p className="text-xs text-zinc-500">Rating</p>
+                <p className="text-xs text-zinc-500">Avaliação</p>
                 <p className="text-sm font-medium text-zinc-300">
                   {app.rating > 0 ? `${app.rating} ⭐` : "—"}
                 </p>
@@ -91,7 +92,7 @@ export function AppsTable({ apps }: AppsTableProps) {
                 </p>
               </div>
               <div>
-                <p className="text-xs text-zinc-500">Revenue</p>
+                <p className="text-xs text-zinc-500">Receita</p>
                 <p className="text-sm font-medium text-zinc-300">
                   {app.revenue > 0 ? `$${app.revenue.toFixed(2)}` : "—"}
                 </p>
@@ -108,9 +109,9 @@ export function AppsTable({ apps }: AppsTableProps) {
             <tr>
               <th className="px-4 py-3 font-medium text-zinc-400">App</th>
               <th className="px-4 py-3 font-medium text-zinc-400">Status</th>
-              <th className="px-4 py-3 font-medium text-zinc-400 text-right">Rating</th>
+              <th className="px-4 py-3 font-medium text-zinc-400 text-right">Avaliação</th>
               <th className="px-4 py-3 font-medium text-zinc-400 text-right">Downloads</th>
-              <th className="px-4 py-3 font-medium text-zinc-400 text-right">Revenue</th>
+              <th className="px-4 py-3 font-medium text-zinc-400 text-right">Receita</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
@@ -118,7 +119,7 @@ export function AppsTable({ apps }: AppsTableProps) {
               <tr key={app.id} className="hover:bg-white/[0.02] transition-colors">
                 <td className="px-4 py-3">
                   <Link href={`/apps/${app.id}`} className="flex items-center gap-3">
-                    <span className="text-xl">{app.icon}</span>
+                    <AppIcon icon={app.icon} name={app.name} size="sm" />
                     <div>
                       <p className="font-medium text-white">{app.name}</p>
                       <p className="text-xs text-zinc-500">{app.packageName}</p>

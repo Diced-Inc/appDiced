@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getReviews, calculateAverageRating } from "@/lib/google/play-store";
+import { fetchPlayStoreInfo } from "@/lib/google/play-icon";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export async function POST() {
@@ -16,19 +16,30 @@ export async function POST() {
   try {
     const { data } = await supabase
       .from("apps")
-      .select("id, package_name");
+      .select("id, package_name, icon");
 
-    const apps = data as { id: string; package_name: string }[] | null;
+    const apps = data as { id: string; package_name: string; icon: string }[] | null;
 
     for (const app of apps ?? []) {
-      const reviews = await getReviews(app.package_name);
-      const avgRating = calculateAverageRating(reviews);
+      const updates: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
 
-      if (avgRating !== null) {
-        await supabase
-          .from("apps")
-          .update({ rating: avgRating, updated_at: new Date().toISOString() })
-          .eq("id", app.id);
+      // Fetch icon, rating, and downloads from Play Store page
+      const info = await fetchPlayStoreInfo(app.package_name);
+
+      if (info.icon && (!app.icon || !app.icon.startsWith("http"))) {
+        updates.icon = info.icon;
+      }
+      if (info.rating !== null) {
+        updates.rating = info.rating;
+      }
+      if (info.downloads !== null) {
+        updates.downloads = info.downloads;
+      }
+
+      if (Object.keys(updates).length > 1) {
+        await supabase.from("apps").update(updates).eq("id", app.id);
       }
     }
 

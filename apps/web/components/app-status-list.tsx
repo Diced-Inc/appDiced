@@ -1,5 +1,6 @@
 import type { DicedApp, AppStatus } from "@/lib/types";
 import { Badge } from "@diced/ui/badge";
+import { AppIcon } from "@/components/app-icon";
 
 const statusVariant: Record<AppStatus, "success" | "warning" | "error" | "info" | "default"> = {
   published: "success",
@@ -10,11 +11,11 @@ const statusVariant: Record<AppStatus, "success" | "warning" | "error" | "info" 
 };
 
 const statusLabel: Record<AppStatus, string> = {
-  published: "Published",
-  in_review: "In Review",
-  suspended: "Suspended",
-  draft: "Draft",
-  removed: "Removed",
+  published: "Publicado",
+  in_review: "Em Revisão",
+  suspended: "Suspenso",
+  draft: "Rascunho",
+  removed: "Removido",
 };
 
 interface AppStatusListProps {
@@ -30,7 +31,7 @@ export function AppStatusList({ apps }: AppStatusListProps) {
           className="flex items-center justify-between rounded-xl border border-white/5 bg-surface px-4 py-3"
         >
           <div className="flex items-center gap-3">
-            <span className="text-2xl">{app.icon}</span>
+            <AppIcon icon={app.icon} name={app.name} size="md" />
             <div>
               <p className="text-sm font-medium text-white">{app.name}</p>
               <p className="text-xs text-zinc-500">{app.packageName}</p>

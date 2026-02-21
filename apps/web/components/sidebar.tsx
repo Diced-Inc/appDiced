@@ -5,10 +5,10 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
 const navItems = [
-  { href: "/", label: "Overview", icon: "LayoutDashboard" },
-  { href: "/apps", label: "Apps", icon: "Smartphone" },
-  { href: "/revenue", label: "Revenue", icon: "DollarSign" },
-  { href: "/settings", label: "Settings", icon: "Settings" },
+  { href: "/", label: "Visão Geral", icon: "LayoutDashboard" },
+  { href: "/apps", label: "Aplicativos", icon: "Smartphone" },
+  { href: "/revenue", label: "Receita", icon: "DollarSign" },
+  { href: "/settings", label: "Configurações", icon: "Settings" },
 ];
 
 const icons: Record<string, React.ReactNode> = {
@@ -49,8 +49,8 @@ export function Sidebar() {
       {/* Mobile hamburger button */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed left-4 top-4 z-50 rounded-lg bg-surface p-2 text-zinc-400 md:hidden"
-        aria-label="Open menu"
+        className="fixed left-4 top-2 z-50 rounded-lg p-2 text-zinc-400 md:hidden"
+        aria-label="Abrir menu"
       >
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
@@ -73,14 +73,15 @@ export function Sidebar() {
       >
         {/* Logo + close button */}
         <div className="flex h-16 items-center justify-between px-6">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500" />
-            <span className="text-lg font-bold font-heading">Diced</span>
-          </div>
+          <span className="text-2xl font-bold font-heading tracking-tight select-none">
+            <span style={{ color: "#6848B3" }}>D</span>
+            <span className="text-white">ICE</span>
+            <span style={{ color: "#6848B3" }}>D</span>
+          </span>
           <button
             onClick={() => setOpen(false)}
             className="rounded-lg p-1 text-zinc-400 hover:text-white md:hidden"
-            aria-label="Close menu"
+            aria-label="Fechar menu"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

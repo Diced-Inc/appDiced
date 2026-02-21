@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { fetchAdMobReport, listAdMobAccounts } from "@/lib/google/admob";
+import {
+  fetchAdMobReport,
+  listAdMobAccounts,
+  listAdMobApps,
+} from "@/lib/google/admob";
+import { fetchPlayStoreIcon } from "@/lib/google/play-icon";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 interface AdMobReportRow {
@@ -42,6 +47,42 @@ export async function POST() {
         .from("api_connections")
         .update({ config: { account_id: accountId } })
         .eq("provider", "admob");
+    }
+
+    // Auto-discover new apps from AdMob
+    try {
+      const admobApps = await listAdMobApps(accountId);
+      for (const admobApp of admobApps) {
+        if (admobApp.platform !== "ANDROID") continue;
+        const packageName = admobApp.linkedAppInfo?.appStoreId;
+        if (!packageName) continue;
+
+        const { data: existing } = await supabase
+          .from("apps")
+          .select("id")
+          .eq("package_name", packageName)
+          .single();
+
+        if (!existing) {
+          const displayName =
+            admobApp.linkedAppInfo?.displayName ?? packageName;
+          const icon = (await fetchPlayStoreIcon(packageName)) ?? "📱";
+
+          await supabase.from("apps").insert({
+            name: displayName,
+            package_name: packageName,
+            icon,
+            status: "published",
+            rating: 0,
+            downloads: 0,
+            revenue: 0,
+            impressions: 0,
+            ecpm: 0,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("[AdMob] Auto-discovery failed:", e);
     }
 
     // Fetch last 30 days

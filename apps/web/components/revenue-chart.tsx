@@ -44,7 +44,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
               borderRadius: "12px",
               color: "#fff",
             }}
-            formatter={(value) => [`$${Number(value ?? 0).toFixed(2)}`, "Revenue"]}
+            formatter={(value) => [`$${Number(value ?? 0).toFixed(2)}`, "Receita"]}
             labelFormatter={(label) => {
               const d = new Date(String(label));
               return d.toLocaleDateString("pt-BR");

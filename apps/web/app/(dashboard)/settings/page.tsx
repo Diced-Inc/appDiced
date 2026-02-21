@@ -44,17 +44,17 @@ export default async function SettingsPage() {
   const statusLabel = (status: string | undefined) => {
     switch (status) {
       case "connected":
-        return "Connected";
+        return "Conectado";
       case "error":
-        return "Error";
+        return "Erro";
       default:
-        return "Not connected";
+        return "Desconectado";
     }
   };
 
   return (
     <div>
-      <Header title="Settings" />
+      <Header title="Configurações" />
       <div className="space-y-4 p-4 md:space-y-6 md:p-6">
         {/* Google Play Connection */}
         <Card>
@@ -64,7 +64,7 @@ export default async function SettingsPage() {
                 Google Play API
               </h2>
               <p className="mt-1 text-xs text-zinc-400 md:text-sm">
-                Service account authentication. Provides reviews and app info.
+                Autenticação por conta de serviço. Fornece avaliações e informações do app.
               </p>
               {playConnection?.error_message && (
                 <p className="mt-1 text-xs text-red-400">
@@ -73,7 +73,7 @@ export default async function SettingsPage() {
               )}
               {playConnection?.last_sync && (
                 <p className="mt-2 text-xs text-zinc-500">
-                  Last sync:{" "}
+                  Última sync:{" "}
                   {new Date(playConnection.last_sync).toLocaleString("pt-BR")}
                 </p>
               )}
@@ -93,7 +93,7 @@ export default async function SettingsPage() {
             <div>
               <h2 className="text-base font-semibold font-heading md:text-lg">AdMob API</h2>
               <p className="mt-1 text-xs text-zinc-400 md:text-sm">
-                OAuth 2.0 authentication. Provides revenue, impressions, eCPM.
+                Autenticação OAuth 2.0. Fornece receita, impressões e eCPM.
               </p>
               {admobConnection?.error_message && (
                 <p className="mt-1 text-xs text-red-400">
@@ -102,7 +102,7 @@ export default async function SettingsPage() {
               )}
               {admobConnection?.last_sync && (
                 <p className="mt-2 text-xs text-zinc-500">
-                  Last sync:{" "}
+                  Última sync:{" "}
                   {new Date(admobConnection.last_sync).toLocaleString("pt-BR")}
                 </p>
               )}
@@ -120,13 +120,13 @@ export default async function SettingsPage() {
                   className="rounded-lg bg-violet-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-violet-600 md:px-4 md:py-2"
                 >
                   {admobConnection?.status === "connected"
-                    ? "Reconnect"
-                    : "Connect"}
+                    ? "Reconectar"
+                    : "Conectar"}
                 </a>
               )}
               {!admobAuthUrl && (
                 <span className="text-xs text-zinc-500">
-                  Configure ADMOB_CLIENT_ID in .env
+                  Configure ADMOB_CLIENT_ID no .env
                 </span>
               )}
             </div>
@@ -135,10 +135,9 @@ export default async function SettingsPage() {
 
         {/* Manual Data Info */}
         <Card>
-          <h2 className="text-base font-semibold font-heading md:text-lg">Manual Data</h2>
+          <h2 className="text-base font-semibold font-heading md:text-lg">Dados Manuais</h2>
           <p className="mt-1 text-xs text-zinc-400 md:text-sm">
-            Downloads, ratings, and other metrics that APIs cannot provide can be
-            updated via the API at{" "}
+            Downloads, avaliações e outras métricas que as APIs não fornecem podem ser atualizadas pela API em{" "}
             <code className="rounded bg-zinc-800 px-1 py-0.5 text-xs">
               PATCH /api/apps/:id
             </code>

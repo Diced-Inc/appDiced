@@ -37,7 +37,7 @@ export function SyncButton({ provider }: SyncButtonProps) {
             : "bg-violet-500/10 text-violet-400 hover:bg-violet-500/20"
       }`}
     >
-      {syncing ? "Syncing..." : result === "success" ? "Done!" : result === "error" ? "Failed" : "Sync Now"}
+      {syncing ? "Sincronizando..." : result === "success" ? "Pronto!" : result === "error" ? "Falhou" : "Sincronizar"}
     </button>
   );
 }

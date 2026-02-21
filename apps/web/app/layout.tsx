@@ -16,7 +16,10 @@ const dmSans = DM_Sans({
 
 export const metadata: Metadata = {
   title: "Diced Dashboard",
-  description: "Internal dashboard for Diced apps",
+  description: "Painel interno para apps da Diced",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
@@ -28,17 +31,12 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body
         className={`${syne.variable} ${dmSans.variable} font-body bg-surface text-white antialiased`}
+        suppressHydrationWarning
       >
         {children}
       </body>
     </html>
   );
-
-  // Skip ClerkProvider when publishable key is not configured (e.g. during build)
-  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-  if (!publishableKey || publishableKey === "pk_test_PLACEHOLDER") {
-    return content;
-  }
 
   return (
     <ClerkProvider appearance={{ baseTheme: dark }}>

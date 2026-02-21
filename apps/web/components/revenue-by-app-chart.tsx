@@ -35,7 +35,7 @@ export function RevenueByAppChart({ apps }: RevenueByAppChartProps) {
               borderRadius: "12px",
               color: "#fff",
             }}
-            formatter={(value) => [`$${Number(value ?? 0).toFixed(2)}`, "Revenue"]}
+            formatter={(value) => [`$${Number(value ?? 0).toFixed(2)}`, "Receita"]}
           />
           <Bar dataKey="revenue" fill="#8B5CF6" radius={[8, 8, 0, 0]} />
         </BarChart>
