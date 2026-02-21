@@ -7,8 +7,8 @@ const SCOPE =
   "https://www.googleapis.com/auth/admob.report https://www.googleapis.com/auth/admob.readonly";
 
 export function getAdMobAuthUrl(): string | null {
-  const clientId = process.env.ADMOB_CLIENT_ID;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const clientId = process.env.ADMOB_CLIENT_ID?.trim();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
 
   if (!clientId || !appUrl) return null;
 
@@ -30,9 +30,9 @@ export async function exchangeAdMobCode(code: string) {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       code,
-      client_id: process.env.ADMOB_CLIENT_ID!,
-      client_secret: process.env.ADMOB_CLIENT_SECRET!,
-      redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/admob/callback`,
+      client_id: process.env.ADMOB_CLIENT_ID!.trim(),
+      client_secret: process.env.ADMOB_CLIENT_SECRET!.trim(),
+      redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL!.trim()}/api/auth/admob/callback`,
       grant_type: "authorization_code",
     }),
   });
@@ -52,8 +52,8 @@ async function refreshAdMobToken(refreshToken: string) {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       refresh_token: refreshToken,
-      client_id: process.env.ADMOB_CLIENT_ID!,
-      client_secret: process.env.ADMOB_CLIENT_SECRET!,
+      client_id: process.env.ADMOB_CLIENT_ID!.trim(),
+      client_secret: process.env.ADMOB_CLIENT_SECRET!.trim(),
       grant_type: "refresh_token",
     }),
   });
