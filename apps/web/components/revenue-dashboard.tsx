@@ -8,6 +8,7 @@ import { RevenueChart } from "@/components/revenue-chart";
 import { RevenueByAppChart } from "@/components/revenue-by-app-chart";
 import { CountryRevenueTable } from "@/components/country-revenue-table";
 import { AdUnitRevenueTable } from "@/components/ad-unit-revenue-table";
+import { KpiIcons } from "@/components/kpi-icons";
 
 interface RevenueDashboardProps {
   apps: DicedApp[];
@@ -118,26 +119,26 @@ export function RevenueDashboard({ apps, dailyRevenue, countryRevenue, adUnitRev
         <KpiCard
           title="Receita Total (30d)"
           value={fmt(totalRevenue)}
-          icon={<span className="text-lg">💰</span>}
+          icon={KpiIcons.revenue}
         />
         <KpiCard
           title="Hoje"
           value={fmt(todayRevenue)}
           change={todayDiff !== 0 ? `${todayDiff >= 0 ? "+" : ""}${fmt(Math.abs(todayDiff))} vs ontem` : undefined}
           changeType={todayDiff >= 0 ? "positive" : "negative"}
-          icon={<span className="text-lg">📅</span>}
+          icon={KpiIcons.today}
         />
         <KpiCard
           title="Média Diária"
           value={fmt(dailyAvg)}
-          icon={<span className="text-lg">📊</span>}
+          icon={KpiIcons.average}
         />
         <KpiCard
           title="Melhor Dia"
           value={fmt(bestDay.revenue)}
           change={bestDay.date ? new Date(bestDay.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) : undefined}
           changeType="neutral"
-          icon={<span className="text-lg">🏆</span>}
+          icon={KpiIcons.trophy}
         />
       </div>
 
@@ -146,17 +147,17 @@ export function RevenueDashboard({ apps, dailyRevenue, countryRevenue, adUnitRev
         <KpiCard
           title="Ontem"
           value={fmt(yesterdayRevenue)}
-          icon={<span className="text-lg">📆</span>}
+          icon={KpiIcons.yesterday}
         />
         <KpiCard
           title="Total de Impressões"
           value={totalImpressions.toLocaleString()}
-          icon={<span className="text-lg">👁️</span>}
+          icon={KpiIcons.impressions}
         />
         <KpiCard
           title="eCPM Médio"
           value={avgEcpm > 0 ? fmt(avgEcpm) : "N/A"}
-          icon={<span className="text-lg">💹</span>}
+          icon={KpiIcons.trendingUp}
         />
       </div>
 

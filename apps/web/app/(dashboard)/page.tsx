@@ -4,6 +4,7 @@ import { RevenueChart } from "@/components/revenue-chart";
 import { AppStatusList } from "@/components/app-status-list";
 import { KpiCard } from "@diced/ui/kpi-card";
 import { Card } from "@diced/ui/card";
+import { KpiIcons } from "@/components/kpi-icons";
 import { getSummary, getDailyRevenue, getApps } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +57,7 @@ export default async function OverviewPage() {
           <KpiCard
             title="Receita (30d)"
             value={fmt(summary.totalRevenue)}
-            icon={<span className="text-lg">💰</span>}
+            icon={KpiIcons.revenue}
           />
           <KpiCard
             title="Hoje"
@@ -67,17 +68,17 @@ export default async function OverviewPage() {
                 : undefined
             }
             changeType={todayDiff >= 0 ? "positive" : "negative"}
-            icon={<span className="text-lg">📅</span>}
+            icon={KpiIcons.today}
           />
           <KpiCard
             title="Ontem"
             value={fmt(yesterdayRevenue)}
-            icon={<span className="text-lg">📆</span>}
+            icon={KpiIcons.yesterday}
           />
           <KpiCard
             title="Média Diária"
             value={fmt(dailyAvg)}
-            icon={<span className="text-lg">📊</span>}
+            icon={KpiIcons.average}
           />
         </div>
 
@@ -86,17 +87,17 @@ export default async function OverviewPage() {
           <KpiCard
             title="Total de Apps"
             value={String(summary.totalApps)}
-            icon={<span className="text-lg">📱</span>}
+            icon={KpiIcons.apps}
           />
           <KpiCard
             title="Downloads"
             value={summary.totalDownloads.toLocaleString()}
-            icon={<span className="text-lg">📥</span>}
+            icon={KpiIcons.downloads}
           />
           <KpiCard
             title="Avaliação"
             value={summary.averageRating > 0 ? String(summary.averageRating) : "N/A"}
-            icon={<span className="text-lg">⭐</span>}
+            icon={KpiIcons.rating}
           />
         </div>
 
