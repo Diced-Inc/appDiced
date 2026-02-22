@@ -25,6 +25,14 @@ export interface CountryRevenue {
   impressions: number;
 }
 
+export interface AdUnitRevenue {
+  adUnitId: string;
+  adUnitName: string;
+  revenue: number;
+  impressions: number;
+  ecpm: number;
+}
+
 export interface DashboardSummary {
   totalApps: number;
   totalRevenue: number;

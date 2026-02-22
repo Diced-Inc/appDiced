@@ -4,6 +4,7 @@ import { fetchPlayStoreInfo } from "@/lib/google/play-icon";
 import {
   fetchAdMobReport,
   fetchAdMobCountryReport,
+  fetchAdMobAdUnitReport,
   listAdMobAccounts,
   listAdMobApps,
   getAdMobAccessToken,
@@ -17,7 +18,11 @@ interface ApiConnection {
 
 interface ReportRow {
   row?: {
-    dimensionValues?: { DATE?: { value?: string } };
+    dimensionValues?: {
+      DATE?: { value?: string };
+      COUNTRY?: { value?: string };
+      AD_UNIT?: { value?: string; displayLabel?: string };
+    };
     metricValues?: {
       ESTIMATED_EARNINGS?: { microsValue?: string };
       IMPRESSIONS?: { integerValue?: string };
@@ -291,6 +296,59 @@ export async function GET(req: NextRequest) {
         }
       } catch (e) {
         console.error(`[Cron] Country report failed for ${userId}:`, e);
+      }
+
+      // Ad unit revenue sync
+      try {
+        const adUnitReport = await fetchAdMobAdUnitReport(userId, accountId, {
+          year: startDate.getFullYear(),
+          month: startDate.getMonth() + 1,
+          day: startDate.getDate(),
+        }, {
+          year: endDate.getFullYear(),
+          month: endDate.getMonth() + 1,
+          day: endDate.getDate(),
+        });
+
+        const adUnitRows = Array.isArray(adUnitReport)
+          ? adUnitReport
+              .filter((item: ReportRow) => item.row)
+              .map((item: ReportRow) => item.row!)
+          : [];
+
+        const periodStart = startDate.toISOString().split("T")[0];
+        const periodEnd = endDate.toISOString().split("T")[0];
+
+        await supabase
+          .from("ad_unit_revenue")
+          .delete()
+          .eq("user_id", userId)
+          .eq("period_start", periodStart)
+          .eq("period_end", periodEnd);
+
+        for (const row of adUnitRows) {
+          const adUnitId = (row.dimensionValues as Record<string, { value?: string; displayLabel?: string }> | undefined)?.AD_UNIT?.value;
+          const adUnitName = (row.dimensionValues as Record<string, { value?: string; displayLabel?: string }> | undefined)?.AD_UNIT?.displayLabel ?? adUnitId ?? "";
+          const earningsMicros = row.metricValues?.ESTIMATED_EARNINGS?.microsValue;
+          const impressions = row.metricValues?.IMPRESSIONS?.integerValue;
+          if (!adUnitId) continue;
+
+          const revenue = earningsMicros ? Number(earningsMicros) / 1_000_000 : 0;
+          const impressionCount = impressions ? Number(impressions) : 0;
+          if (revenue <= 0 && impressionCount <= 0) continue;
+
+          await supabase.from("ad_unit_revenue").insert({
+            user_id: userId,
+            ad_unit_id: adUnitId,
+            ad_unit_name: adUnitName,
+            revenue: Math.round(revenue * 10000) / 10000,
+            impressions: impressionCount,
+            period_start: periodStart,
+            period_end: periodEnd,
+          });
+        }
+      } catch (e) {
+        console.error(`[Cron] Ad unit report failed for ${userId}:`, e);
       }
 
       await supabase

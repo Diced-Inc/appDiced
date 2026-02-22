@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import type { DicedApp, DailyRevenue, DashboardSummary, CountryRevenue } from "./types";
+import type { DicedApp, DailyRevenue, DashboardSummary, CountryRevenue, AdUnitRevenue } from "./types";
 
 interface AppRow {
   id: string;
@@ -123,6 +123,41 @@ export async function getCountryRevenue(userId: string): Promise<CountryRevenue[
     revenue: Math.round(Number(row.revenue) * 100) / 100,
     impressions: Number(row.impressions),
   }));
+}
+
+interface AdUnitRevenueRow {
+  ad_unit_id: string;
+  ad_unit_name: string;
+  revenue: number;
+  impressions: number;
+}
+
+export async function getAdUnitRevenue(userId: string): Promise<AdUnitRevenue[]> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("ad_unit_revenue")
+    .select("ad_unit_id, ad_unit_name, revenue, impressions")
+    .eq("user_id", userId)
+    .order("revenue", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    console.error("Failed to fetch ad unit revenue:", error);
+    return [];
+  }
+
+  return ((data as AdUnitRevenueRow[]) ?? []).map((row) => {
+    const revenue = Math.round(Number(row.revenue) * 10000) / 10000;
+    const impressions = Number(row.impressions);
+    const ecpm = impressions > 0 ? Math.round((revenue / impressions) * 1000 * 100) / 100 : 0;
+    return {
+      adUnitId: row.ad_unit_id,
+      adUnitName: row.ad_unit_name || row.ad_unit_id,
+      revenue,
+      impressions,
+      ecpm,
+    };
+  });
 }
 
 export async function getSummary(userId: string): Promise<DashboardSummary> {
