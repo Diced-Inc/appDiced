@@ -8,6 +8,10 @@ import { getSummary, getDailyRevenue, getApps } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
+function fmt(v: number) {
+  return `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export default async function OverviewPage() {
   const { userId } = await auth();
   if (!userId) return null;
@@ -18,33 +22,79 @@ export default async function OverviewPage() {
     getApps(userId),
   ]);
 
+  // Aggregate daily totals
+  const byDate = new Map<string, number>();
+  for (const r of dailyRevenue) {
+    byDate.set(r.date, (byDate.get(r.date) ?? 0) + r.revenue);
+  }
+  const sortedDays = Array.from(byDate.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, revenue]) => ({ date, revenue }));
+
+  const todayStr = new Date().toISOString().split("T")[0]!;
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterdayStr = yesterdayDate.toISOString().split("T")[0]!;
+
+  const todayRevenue = byDate.get(todayStr) ?? 0;
+  const yesterdayRevenue = byDate.get(yesterdayStr) ?? 0;
+  const todayDiff = todayRevenue - yesterdayRevenue;
+
+  const dailyAvg =
+    sortedDays.length > 0
+      ? Math.round(
+          (sortedDays.reduce((s, r) => s + r.revenue, 0) / sortedDays.length) * 100
+        ) / 100
+      : 0;
+
   return (
     <div>
       <Header title="Visão Geral" />
       <div className="space-y-4 p-4 md:space-y-6 md:p-6">
-        {/* KPI Cards */}
+        {/* KPI Cards - Row 1: Revenue focus */}
         <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+          <KpiCard
+            title="Receita (30d)"
+            value={fmt(summary.totalRevenue)}
+            icon={<span className="text-lg">💰</span>}
+          />
+          <KpiCard
+            title="Hoje"
+            value={fmt(todayRevenue)}
+            change={
+              todayDiff !== 0
+                ? `${todayDiff >= 0 ? "+" : ""}${fmt(Math.abs(todayDiff))} vs ontem`
+                : undefined
+            }
+            changeType={todayDiff >= 0 ? "positive" : "negative"}
+            icon={<span className="text-lg">📅</span>}
+          />
+          <KpiCard
+            title="Ontem"
+            value={fmt(yesterdayRevenue)}
+            icon={<span className="text-lg">📆</span>}
+          />
+          <KpiCard
+            title="Média Diária"
+            value={fmt(dailyAvg)}
+            icon={<span className="text-lg">📊</span>}
+          />
+        </div>
+
+        {/* KPI Cards - Row 2: App metrics */}
+        <div className="grid grid-cols-3 gap-3 md:gap-4">
           <KpiCard
             title="Total de Apps"
             value={String(summary.totalApps)}
             icon={<span className="text-lg">📱</span>}
           />
           <KpiCard
-            title="Receita Mensal"
-            value={`$${summary.totalRevenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
-            change={summary.revenueChange !== 0 ? `+${summary.revenueChange}%` : undefined}
-            changeType="positive"
-            icon={<span className="text-lg">💰</span>}
-          />
-          <KpiCard
-            title="Total de Downloads"
+            title="Downloads"
             value={summary.totalDownloads.toLocaleString()}
-            change={summary.downloadsChange !== 0 ? `+${summary.downloadsChange}%` : undefined}
-            changeType="positive"
             icon={<span className="text-lg">📥</span>}
           />
           <KpiCard
-            title="Avaliação Média"
+            title="Avaliação"
             value={summary.averageRating > 0 ? String(summary.averageRating) : "N/A"}
             icon={<span className="text-lg">⭐</span>}
           />
@@ -56,7 +106,7 @@ export default async function OverviewPage() {
             <h2 className="mb-3 text-base font-semibold font-heading md:mb-4 md:text-lg">
               Receita (Últimos 30 Dias)
             </h2>
-            <RevenueChart data={dailyRevenue} />
+            <RevenueChart data={sortedDays} />
           </Card>
 
           <Card>
