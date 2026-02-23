@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSummary, getDailyRevenue } from "@/lib/data";
+import { toBrazilDateStr } from "@/lib/date";
 
 export async function GET() {
   const { userId } = await auth();
@@ -13,14 +14,14 @@ export async function GET() {
     getDailyRevenue(userId, 7),
   ]);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = toBrazilDateStr();
   const todayRevenue = dailyRevenue
     .filter((r) => r.date === today)
     .reduce((sum, r) => sum + r.revenue, 0);
 
   const yesterdayDate = new Date();
   yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterday = yesterdayDate.toISOString().split("T")[0];
+  const yesterday = toBrazilDateStr(yesterdayDate);
   const yesterdayRevenue = dailyRevenue
     .filter((r) => r.date === yesterday)
     .reduce((sum, r) => sum + r.revenue, 0);

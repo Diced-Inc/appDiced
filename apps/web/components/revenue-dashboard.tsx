@@ -9,6 +9,7 @@ import { RevenueByAppChart } from "@/components/revenue-by-app-chart";
 import { CountryRevenueTable } from "@/components/country-revenue-table";
 import { AdUnitRevenueTable } from "@/components/ad-unit-revenue-table";
 import { KpiIcons } from "@/components/kpi-icons";
+import { toBrazilDateStr } from "@/lib/date";
 
 interface RevenueDashboardProps {
   apps: DicedApp[];
@@ -64,10 +65,10 @@ export function RevenueDashboard({ apps, dailyRevenue, countryRevenue, adUnitRev
       : 0;
 
   // Daily breakdown: today, yesterday, best day
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = toBrazilDateStr();
   const yesterdayDate = new Date();
   yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterdayStr = yesterdayDate.toISOString().split("T")[0];
+  const yesterdayStr = toBrazilDateStr(yesterdayDate);
 
   const todayRevenue = filteredRevenue.find((r) => r.date === todayStr)?.revenue ?? 0;
   const yesterdayRevenue = filteredRevenue.find((r) => r.date === yesterdayStr)?.revenue ?? 0;

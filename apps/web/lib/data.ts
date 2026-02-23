@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { toBrazilDateStr } from "@/lib/date";
 import type { DicedApp, DailyRevenue, DashboardSummary, CountryRevenue, AdUnitRevenue } from "./types";
 
 interface AppRow {
@@ -83,7 +84,7 @@ export async function getDailyRevenue(userId: string, days: number = 30): Promis
     .from("daily_revenue")
     .select("date, revenue, app_id")
     .in("app_id", appIds)
-    .gte("date", since.toISOString().split("T")[0])
+    .gte("date", toBrazilDateStr(since))
     .order("date", { ascending: true });
 
   if (error) {

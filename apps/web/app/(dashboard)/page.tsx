@@ -6,6 +6,7 @@ import { KpiCard } from "@diced/ui/kpi-card";
 import { Card } from "@diced/ui/card";
 import { KpiIcons } from "@/components/kpi-icons";
 import { getSummary, getDailyRevenue, getApps } from "@/lib/data";
+import { toBrazilDateStr } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
 
@@ -32,10 +33,10 @@ export default async function OverviewPage() {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, revenue]) => ({ date, revenue }));
 
-  const todayStr = new Date().toISOString().split("T")[0]!;
+  const todayStr = toBrazilDateStr();
   const yesterdayDate = new Date();
   yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterdayStr = yesterdayDate.toISOString().split("T")[0]!;
+  const yesterdayStr = toBrazilDateStr(yesterdayDate);
 
   const todayRevenue = byDate.get(todayStr) ?? 0;
   const yesterdayRevenue = byDate.get(yesterdayStr) ?? 0;
