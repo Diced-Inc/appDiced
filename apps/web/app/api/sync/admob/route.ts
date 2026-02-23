@@ -286,13 +286,11 @@ export async function POST() {
       const periodStart = startDate.toISOString().split("T")[0];
       const periodEnd = endDate.toISOString().split("T")[0];
 
-      // Delete old data for this period
+      // Delete ALL old country data for user (snapshot — replaced each sync)
       await supabase
         .from("country_revenue")
         .delete()
-        .eq("user_id", userId)
-        .eq("period_start", periodStart)
-        .eq("period_end", periodEnd);
+        .eq("user_id", userId);
 
       for (const row of countryRows) {
         const countryCode = row.dimensionValues?.COUNTRY?.value;
@@ -345,12 +343,11 @@ export async function POST() {
       const periodStart = startDate.toISOString().split("T")[0];
       const periodEnd = endDate.toISOString().split("T")[0];
 
+      // Delete ALL old ad unit data for user (snapshot — replaced each sync)
       await supabase
         .from("ad_unit_revenue")
         .delete()
-        .eq("user_id", userId)
-        .eq("period_start", periodStart)
-        .eq("period_end", periodEnd);
+        .eq("user_id", userId);
 
       for (const row of adUnitRows) {
         const adUnitId = row.dimensionValues?.AD_UNIT?.value;
