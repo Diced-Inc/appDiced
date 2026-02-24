@@ -14,13 +14,14 @@ const STAGES = [
   { key: "ads_version", label: "Versão com Ads", color: "border-violet-500/40", badge: "bg-violet-500/20 text-violet-400" },
 ] as const;
 
-function getCountdown(stageEnteredAt: string) {
-  const entered = new Date(stageEnteredAt);
-  const now = new Date();
-  const diffMs = now.getTime() - entered.getTime();
-  const daysPassed = Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1);
-  const daysLeft = Math.max(0, 14 - daysPassed);
-  return { daysPassed: Math.min(daysPassed, 14), daysLeft };
+function getDaysInStage(stageEnteredAt: string): number {
+  const tz = "America/Sao_Paulo";
+  const enteredStr = new Date(stageEnteredAt).toLocaleDateString("en-CA", { timeZone: tz });
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+  const entered = new Date(enteredStr + "T00:00:00");
+  const today = new Date(todayStr + "T00:00:00");
+  const diff = Math.floor((today.getTime() - entered.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.max(1, diff + 1);
 }
 
 export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
@@ -163,7 +164,9 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
       {/* Kanban Board */}
       <div className="flex gap-3 overflow-x-auto pb-4 md:gap-4">
         {STAGES.map((stage) => {
-          const stageApps = apps.filter((a) => a.stage === stage.key);
+          const stageApps = apps
+            .filter((a) => a.stage === stage.key)
+            .sort((a, b) => new Date(a.stageEnteredAt).getTime() - new Date(b.stageEnteredAt).getTime());
           return (
             <div
               key={stage.key}
@@ -185,7 +188,7 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
                 {stageApps.map((app) => {
                   const isLast = stage.key === "ads_version";
                   const isClosedTest = stage.key === "closed_test";
-                  const countdown = isClosedTest ? getCountdown(app.stageEnteredAt) : null;
+                  const days = getDaysInStage(app.stageEnteredAt);
                   const isLoading = loading === app.id;
 
                   return (
@@ -201,10 +204,13 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
                             <p className="truncate text-xs text-zinc-500">{app.packageName}</p>
                           )}
                         </div>
+                        <span className="shrink-0 rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
+                          {days}d
+                        </span>
                       </div>
 
                       {/* Countdown for closed_test */}
-                      {countdown && (
+                      {isClosedTest && (
                         <div className="mt-2 rounded-lg bg-orange-500/10 px-2.5 py-1.5">
                           {editingDays === app.id ? (
                             <div className="flex items-center gap-2">
@@ -251,15 +257,15 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
                           ) : (
                             <div
                               className="flex cursor-pointer items-center justify-between text-xs"
-                              onClick={() => { setEditingDays(app.id); setDaysInput(String(countdown.daysPassed)); }}
+                              onClick={() => { setEditingDays(app.id); setDaysInput(String(Math.min(days, 14))); }}
                               title="Clique para editar os dias"
                             >
                               <span className="font-medium text-orange-400">
-                                Dia {countdown.daysPassed}/14
+                                Dia {Math.min(days, 14)}/14
                               </span>
                               <span className="text-orange-300">
-                                {countdown.daysLeft > 0
-                                  ? `faltam ${countdown.daysLeft}d`
+                                {days < 14
+                                  ? `faltam ${14 - days}d`
                                   : "Completo!"}
                               </span>
                             </div>
@@ -267,7 +273,7 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
                           <div className="mt-1.5 h-1.5 rounded-full bg-orange-500/20">
                             <div
                               className="h-1.5 rounded-full bg-orange-400 transition-all"
-                              style={{ width: `${Math.min(100, (countdown.daysPassed / 14) * 100)}%` }}
+                              style={{ width: `${Math.min(100, (Math.min(days, 14) / 14) * 100)}%` }}
                             />
                           </div>
                         </div>
