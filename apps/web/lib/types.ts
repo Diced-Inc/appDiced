@@ -44,6 +44,14 @@ export interface DashboardSummary {
 
 export type PipelineStage = "code" | "play_store" | "testers" | "closed_test" | "admob_banners" | "ads_version";
 
+export interface PipelineInsight {
+  id: string;
+  name: string;
+  platforms: string[];
+  notes: string;
+  createdAt: string;
+}
+
 export interface PipelineApp {
   id: string;
   name: string;

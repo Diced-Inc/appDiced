@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import type { PipelineApp, PipelineStage } from "./types";
+import type { PipelineApp, PipelineInsight, PipelineStage } from "./types";
 
 interface PipelineRow {
   id: string;
@@ -40,4 +40,34 @@ export async function getPipelineApps(userId: string): Promise<PipelineApp[]> {
   }
 
   return ((data as PipelineRow[]) ?? []).map(mapRow);
+}
+
+interface InsightRow {
+  id: string;
+  name: string;
+  platforms: string[];
+  notes: string;
+  created_at: string;
+}
+
+export async function getPipelineInsights(userId: string): Promise<PipelineInsight[]> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("pipeline_insights")
+    .select("id, name, platforms, notes, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Failed to fetch pipeline insights:", error);
+    return [];
+  }
+
+  return ((data as InsightRow[]) ?? []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    platforms: r.platforms ?? [],
+    notes: r.notes ?? "",
+    createdAt: r.created_at,
+  }));
 }

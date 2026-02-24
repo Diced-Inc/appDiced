@@ -1,3 +1,31 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Custom scrollbar — dark theme with violet accent */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(104, 72, 179, 0.35) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(104, 72, 179, 0.35);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(104, 72, 179, 0.55);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}

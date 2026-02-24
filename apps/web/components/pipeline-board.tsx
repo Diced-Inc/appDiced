@@ -21,7 +21,7 @@ function getDaysInStage(stageEnteredAt: string): number {
   const entered = new Date(enteredStr + "T00:00:00");
   const today = new Date(todayStr + "T00:00:00");
   const diff = Math.floor((today.getTime() - entered.getTime()) / (1000 * 60 * 60 * 24));
-  return Math.max(1, diff + 1);
+  return Math.max(0, diff);
 }
 
 export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
@@ -111,11 +111,11 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
 
   async function handleSetDays(id: string) {
     const days = parseInt(daysInput);
-    if (isNaN(days) || days < 1 || days > 14) return;
+    if (isNaN(days) || days < 0 || days > 14) return;
     setLoading(id);
-    // Calculate stage_entered_at = now - (days - 1) days
+    // Calculate stage_entered_at = now - days
     const entered = new Date();
-    entered.setDate(entered.getDate() - (days - 1));
+    entered.setDate(entered.getDate() - days);
     await fetch(`/api/pipeline/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -246,7 +246,7 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
                               <div className="flex items-center rounded-md border border-orange-500/30 bg-black/20">
                                 <button
                                   type="button"
-                                  onClick={() => setDaysInput(String(Math.max(1, (parseInt(daysInput) || 1) - 1)))}
+                                  onClick={() => setDaysInput(String(Math.max(0, (parseInt(daysInput) || 0) - 1)))}
                                   className="px-1.5 py-0.5 text-xs text-orange-400 hover:text-orange-300 transition-colors"
                                 >
                                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" /></svg>
@@ -255,7 +255,7 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
                                   type="text"
                                   inputMode="numeric"
                                   value={daysInput}
-                                  onChange={(e) => { const v = e.target.value.replace(/\D/g, ""); if (v === "" || (Number(v) >= 1 && Number(v) <= 14)) setDaysInput(v); }}
+                                  onChange={(e) => { const v = e.target.value.replace(/\D/g, ""); if (v === "" || (Number(v) >= 0 && Number(v) <= 14)) setDaysInput(v); }}
                                   onKeyDown={(e) => e.key === "Enter" && handleSetDays(app.id)}
                                   className="w-6 bg-transparent text-center text-xs font-medium text-orange-300 outline-none"
                                   autoFocus
@@ -292,9 +292,9 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
                                 Dia {Math.min(days, 14)}/14
                               </span>
                               <span className="text-orange-300">
-                                {days < 14
-                                  ? `faltam ${14 - days}d`
-                                  : "Completo!"}
+                                {days >= 14
+                                  ? "Completo!"
+                                  : `faltam ${14 - days}d`}
                               </span>
                             </div>
                           )}
