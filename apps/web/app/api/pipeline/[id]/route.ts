@@ -15,7 +15,7 @@ export async function PATCH(
   const body = await req.json();
   const supabase = getSupabaseAdmin();
 
-  if (body.action === "advance") {
+  if (body.action === "advance" || body.action === "retreat") {
     const { data: app } = await supabase
       .from("pipeline_apps")
       .select("stage")
@@ -26,6 +26,20 @@ export async function PATCH(
     if (!app) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const currentIdx = STAGES.indexOf(app.stage as (typeof STAGES)[number]);
+
+    if (body.action === "retreat") {
+      if (currentIdx <= 0) {
+        return NextResponse.json({ error: "Already at first stage" }, { status: 400 });
+      }
+      const prevStage = STAGES[currentIdx - 1];
+      await supabase
+        .from("pipeline_apps")
+        .update({ stage: prevStage, stage_entered_at: new Date().toISOString() })
+        .eq("id", id)
+        .eq("user_id", userId);
+      return NextResponse.json({ success: true, stage: prevStage });
+    }
+
     if (currentIdx === STAGES.length - 1) {
       await supabase
         .from("pipeline_apps")

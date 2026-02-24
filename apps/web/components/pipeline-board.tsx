@@ -54,6 +54,25 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
     setLoading(null);
   }
 
+  async function handleRetreat(id: string) {
+    setLoading(id);
+    const res = await fetch(`/api/pipeline/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "retreat" }),
+    });
+    const data = await res.json();
+    if (data.stage) {
+      router.refresh();
+      setApps((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, stage: data.stage, stageEnteredAt: new Date().toISOString() } : a
+        )
+      );
+    }
+    setLoading(null);
+  }
+
   async function handleDelete(id: string) {
     setLoading(id);
     await fetch(`/api/pipeline/${id}`, { method: "DELETE" });
@@ -281,6 +300,18 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
 
                       {/* Actions */}
                       <div className="mt-2.5 flex items-center gap-1.5">
+                        {stage.key !== "code" && (
+                          <button
+                            onClick={() => handleRetreat(app.id)}
+                            disabled={isLoading}
+                            className="rounded-md px-1.5 py-1 text-xs text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300 disabled:opacity-50"
+                            title="Voltar estágio"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                            </svg>
+                          </button>
+                        )}
                         <button
                           onClick={() => handleAdvance(app.id)}
                           disabled={isLoading}
@@ -295,7 +326,7 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
                         <button
                           onClick={() => handleDelete(app.id)}
                           disabled={isLoading}
-                          className="rounded-md px-2 py-1 text-xs text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+                          className="rounded-md px-1.5 py-1 text-xs text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
                           title="Remover"
                         >
                           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
