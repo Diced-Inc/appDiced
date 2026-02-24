@@ -44,12 +44,14 @@ export async function PATCH(
     return NextResponse.json({ success: true, stage: nextStage });
   }
 
-  const allowed = ["name", "package_name", "icon", "stage"];
+  const allowed = ["name", "package_name", "icon", "stage", "stage_entered_at"];
   const updates: Record<string, unknown> = {};
   for (const f of allowed) {
     if (f in body) updates[f] = body[f];
   }
-  if ("stage" in updates) updates["stage_entered_at"] = new Date().toISOString();
+  if ("stage" in updates && !("stage_entered_at" in updates)) {
+    updates["stage_entered_at"] = new Date().toISOString();
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No valid fields" }, { status: 400 });

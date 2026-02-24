@@ -29,6 +29,8 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
   const [loading, setLoading] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", package_name: "", icon: "" });
+  const [editingDays, setEditingDays] = useState<string | null>(null);
+  const [daysInput, setDaysInput] = useState("");
 
   async function handleAdvance(id: string) {
     setLoading(id);
@@ -84,6 +86,26 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
       setForm({ name: "", package_name: "", icon: "" });
       setShowForm(false);
     }
+    setLoading(null);
+  }
+
+  async function handleSetDays(id: string) {
+    const days = parseInt(daysInput);
+    if (isNaN(days) || days < 1 || days > 14) return;
+    setLoading(id);
+    // Calculate stage_entered_at = now - (days - 1) days
+    const entered = new Date();
+    entered.setDate(entered.getDate() - (days - 1));
+    await fetch(`/api/pipeline/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stage_entered_at: entered.toISOString() }),
+    });
+    setApps((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, stageEnteredAt: entered.toISOString() } : a))
+    );
+    setEditingDays(null);
+    setDaysInput("");
     setLoading(null);
   }
 
@@ -184,16 +206,64 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
                       {/* Countdown for closed_test */}
                       {countdown && (
                         <div className="mt-2 rounded-lg bg-orange-500/10 px-2.5 py-1.5">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-medium text-orange-400">
-                              Dia {countdown.daysPassed}/14
-                            </span>
-                            <span className="text-orange-300">
-                              {countdown.daysLeft > 0
-                                ? `faltam ${countdown.daysLeft}d`
-                                : "Completo!"}
-                            </span>
-                          </div>
+                          {editingDays === app.id ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-orange-400">Dia</span>
+                              <div className="flex items-center rounded-md border border-orange-500/30 bg-black/20">
+                                <button
+                                  type="button"
+                                  onClick={() => setDaysInput(String(Math.max(1, (parseInt(daysInput) || 1) - 1)))}
+                                  className="px-1.5 py-0.5 text-xs text-orange-400 hover:text-orange-300 transition-colors"
+                                >
+                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" /></svg>
+                                </button>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={daysInput}
+                                  onChange={(e) => { const v = e.target.value.replace(/\D/g, ""); if (v === "" || (Number(v) >= 1 && Number(v) <= 14)) setDaysInput(v); }}
+                                  onKeyDown={(e) => e.key === "Enter" && handleSetDays(app.id)}
+                                  className="w-6 bg-transparent text-center text-xs font-medium text-orange-300 outline-none"
+                                  autoFocus
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setDaysInput(String(Math.min(14, (parseInt(daysInput) || 0) + 1)))}
+                                  className="px-1.5 py-0.5 text-xs text-orange-400 hover:text-orange-300 transition-colors"
+                                >
+                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                                </button>
+                              </div>
+                              <span className="text-xs text-orange-400/70">/14</span>
+                              <button
+                                onClick={() => handleSetDays(app.id)}
+                                className="ml-auto rounded-md bg-orange-500/20 px-2 py-0.5 text-xs font-medium text-orange-300 hover:bg-orange-500/30 transition-colors"
+                              >
+                                OK
+                              </button>
+                              <button
+                                onClick={() => { setEditingDays(null); setDaysInput(""); }}
+                                className="rounded-md p-0.5 text-zinc-500 hover:text-zinc-300 transition-colors"
+                              >
+                                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                              </button>
+                            </div>
+                          ) : (
+                            <div
+                              className="flex cursor-pointer items-center justify-between text-xs"
+                              onClick={() => { setEditingDays(app.id); setDaysInput(String(countdown.daysPassed)); }}
+                              title="Clique para editar os dias"
+                            >
+                              <span className="font-medium text-orange-400">
+                                Dia {countdown.daysPassed}/14
+                              </span>
+                              <span className="text-orange-300">
+                                {countdown.daysLeft > 0
+                                  ? `faltam ${countdown.daysLeft}d`
+                                  : "Completo!"}
+                              </span>
+                            </div>
+                          )}
                           <div className="mt-1.5 h-1.5 rounded-full bg-orange-500/20">
                             <div
                               className="h-1.5 rounded-full bg-orange-400 transition-all"
