@@ -29,7 +29,7 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
   const [apps, setApps] = useState(initial);
   const [loading, setLoading] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", package_name: "", icon: "" });
+  const [form, setForm] = useState({ name: "", package_name: "", icon: "", stage: "code" });
   const [editingDays, setEditingDays] = useState<string | null>(null);
   const [daysInput, setDaysInput] = useState("");
 
@@ -97,13 +97,13 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
           name: data.name,
           packageName: data.package_name,
           icon: data.icon,
-          stage: "code",
+          stage: data.stage,
           stageEnteredAt: data.stage_entered_at,
           createdAt: data.created_at,
           completedAt: null,
         },
       ]);
-      setForm({ name: "", package_name: "", icon: "" });
+      setForm({ name: "", package_name: "", icon: "", stage: "code" });
       setShowForm(false);
     }
     setLoading(null);
@@ -147,7 +147,7 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
       {/* New App Form */}
       {showForm && (
         <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <input
               type="text"
               placeholder="Nome do app"
@@ -169,6 +169,15 @@ export function PipelineBoard({ apps: initial }: { apps: PipelineApp[] }) {
               onChange={(e) => setForm({ ...form, icon: e.target.value })}
               className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none focus:border-violet-500"
             />
+            <select
+              value={form.stage}
+              onChange={(e) => setForm({ ...form, stage: e.target.value })}
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-violet-500"
+            >
+              {STAGES.map((s) => (
+                <option key={s.key} value={s.key} className="bg-zinc-900">{s.label}</option>
+              ))}
+            </select>
           </div>
           <button
             onClick={handleCreate}

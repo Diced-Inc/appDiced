@@ -22,9 +22,10 @@ export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name, package_name, icon } = await req.json();
+  const { name, package_name, icon, stage } = await req.json();
   if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
 
+  const validStages = ["code", "play_store", "testers", "closed_test", "admob_banners", "ads_version"];
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("pipeline_apps")
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
       name,
       package_name: package_name ?? "",
       icon: icon ?? "",
-      stage: "code",
+      stage: validStages.includes(stage) ? stage : "code",
     })
     .select()
     .single();
