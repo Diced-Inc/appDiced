@@ -41,3 +41,16 @@ export interface DashboardSummary {
   revenueChange: number;
   downloadsChange: number;
 }
+
+export type PipelineStage = "code" | "play_store" | "testers" | "closed_test" | "admob_banners" | "ads_version";
+
+export interface PipelineApp {
+  id: string;
+  name: string;
+  packageName: string;
+  icon: string;
+  stage: PipelineStage;
+  stageEnteredAt: string;
+  createdAt: string;
+  completedAt: string | null;
+}
