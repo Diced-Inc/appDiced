@@ -173,13 +173,28 @@ export async function GET(req: NextRequest) {
         .from("apps")
         .select("id, revenue")
         .eq("user_id", userId)
-        .limit(1);
+        .order("created_at", { ascending: true });
 
-      const apps = appsData as { id: string; revenue: number }[] | null;
-      const appId = apps?.[0]?.id;
-      const oldRevenue = apps?.[0]?.revenue ?? 0;
+      const allApps = (appsData as { id: string; revenue: number }[] | null) ?? [];
+      const appId = allApps[0]?.id;
+      const oldRevenue = allApps[0]?.revenue ?? 0;
+      const allAppIds = allApps.map((a) => a.id);
 
       if (appId) {
+        // Delete ALL old daily_revenue for user's apps (account-level snapshot)
+        if (allAppIds.length > 0) {
+          await supabase.from("daily_revenue").delete().in("app_id", allAppIds);
+        }
+
+        // Reset revenue on other apps (account total goes on first app only)
+        if (allAppIds.length > 1) {
+          await supabase
+            .from("apps")
+            .update({ revenue: 0, impressions: 0, ecpm: 0, updated_at: new Date().toISOString() })
+            .eq("user_id", userId)
+            .neq("id", appId);
+        }
+
         let totalRevenue = 0;
         let totalImpressions = 0;
         const rows = Array.isArray(report)
@@ -202,14 +217,11 @@ export async function GET(req: NextRequest) {
           totalImpressions += impressions ? Number(impressions) : 0;
 
           const formattedDate = `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
-          await supabase.from("daily_revenue").upsert(
-            {
-              app_id: appId,
-              date: formattedDate,
-              revenue: Math.round(revenue * 100) / 100,
-            },
-            { onConflict: "app_id,date" }
-          );
+          await supabase.from("daily_revenue").insert({
+            app_id: appId,
+            date: formattedDate,
+            revenue: Math.round(revenue * 100) / 100,
+          });
         }
 
         const ecpm =

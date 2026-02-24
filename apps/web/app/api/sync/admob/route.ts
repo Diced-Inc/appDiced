@@ -146,15 +146,16 @@ export async function POST() {
       }
     );
 
-    // Get user's apps
+    // Get user's apps — pick first as revenue target, track all IDs
     const { data: appsData } = await supabase
       .from("apps")
       .select("id")
       .eq("user_id", userId)
-      .limit(1);
+      .order("created_at", { ascending: true });
 
-    const apps = appsData as { id: string }[] | null;
-    const appId = apps?.[0]?.id;
+    const allApps = (appsData as { id: string }[] | null) ?? [];
+    const appId = allApps[0]?.id;
+    const allAppIds = allApps.map((a) => a.id);
 
     if (!appId) {
       // No apps found — still mark connection as successful
@@ -185,6 +186,20 @@ export async function POST() {
       });
     }
 
+    // Delete ALL old daily_revenue for user's apps (account-level snapshot)
+    if (allAppIds.length > 0) {
+      await supabase.from("daily_revenue").delete().in("app_id", allAppIds);
+    }
+
+    // Reset revenue on all apps except the target
+    if (allAppIds.length > 1) {
+      await supabase
+        .from("apps")
+        .update({ revenue: 0, impressions: 0, ecpm: 0, updated_at: new Date().toISOString() })
+        .eq("user_id", userId)
+        .neq("id", appId);
+    }
+
     // Parse report rows
     let totalRevenue = 0;
     let totalImpressions = 0;
@@ -210,14 +225,11 @@ export async function POST() {
 
       const formattedDate = `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
 
-      await supabase.from("daily_revenue").upsert(
-        {
-          app_id: appId,
-          date: formattedDate,
-          revenue: Math.round(revenue * 100) / 100,
-        },
-        { onConflict: "app_id,date" }
-      );
+      await supabase.from("daily_revenue").insert({
+        app_id: appId,
+        date: formattedDate,
+        revenue: Math.round(revenue * 100) / 100,
+      });
     }
 
     const ecpm =
