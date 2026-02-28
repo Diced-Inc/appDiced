@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { Header } from "@/components/header";
 import { RevenueDashboard } from "@/components/revenue-dashboard";
-import { getApps, getDailyRevenue, getCountryRevenue, getAdUnitRevenue, getYesterdaySameHourRevenue } from "@/lib/data";
+import { getApps, getDailyRevenue, getCountryRevenue, getAdUnitRevenue, getYesterdaySameHourRevenue, saveRevenueSnapshot } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +16,9 @@ export default async function RevenuePage() {
     getAdUnitRevenue(userId),
     getYesterdaySameHourRevenue(userId),
   ]);
+
+  // Save snapshot for current hour (fire and forget)
+  saveRevenueSnapshot(userId);
 
   return (
     <div>

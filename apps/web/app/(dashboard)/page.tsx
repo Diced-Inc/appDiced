@@ -5,7 +5,7 @@ import { AppStatusList } from "@/components/app-status-list";
 import { KpiCard } from "@diced/ui/kpi-card";
 import { Card } from "@diced/ui/card";
 import { KpiIcons } from "@/components/kpi-icons";
-import { getSummary, getDailyRevenue, getApps, getYesterdaySameHourRevenue } from "@/lib/data";
+import { getSummary, getDailyRevenue, getApps, getYesterdaySameHourRevenue, saveRevenueSnapshot } from "@/lib/data";
 import { toBrazilDateStr } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +24,9 @@ export default async function OverviewPage() {
     getApps(userId),
     getYesterdaySameHourRevenue(userId),
   ]);
+
+  // Save snapshot for current hour (fire and forget)
+  saveRevenueSnapshot(userId);
 
   // Aggregate daily totals
   const byDate = new Map<string, number>();

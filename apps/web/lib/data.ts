@@ -183,6 +183,44 @@ export async function getYesterdaySameHourRevenue(userId: string): Promise<numbe
   return Math.round(Number((data as { revenue: number }).revenue) * 100) / 100;
 }
 
+export async function saveRevenueSnapshot(userId: string): Promise<void> {
+  try {
+    const supabase = getSupabaseAdmin();
+    const nowBR = new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
+    const brDate = new Date(nowBR);
+    const brHour = brDate.getHours();
+    const todayDateStr = toBrazilDateStr();
+
+    // Get user's app IDs
+    const { data: appsData } = await supabase
+      .from("apps")
+      .select("id")
+      .eq("user_id", userId);
+    const appIds = (appsData as { id: string }[] | null)?.map((a) => a.id) ?? [];
+    if (appIds.length === 0) return;
+
+    // Get today's revenue
+    const { data: todayData } = await supabase
+      .from("daily_revenue")
+      .select("revenue")
+      .in("app_id", appIds)
+      .eq("date", todayDateStr);
+    const todayRev = (todayData as { revenue: number }[] | null)?.reduce((s, r) => s + Number(r.revenue), 0) ?? 0;
+
+    await supabase
+      .from("revenue_snapshots")
+      .upsert({
+        user_id: userId,
+        date: todayDateStr,
+        hour: brHour,
+        revenue: Math.round(todayRev * 100) / 100,
+        captured_at: new Date().toISOString(),
+      }, { onConflict: "user_id,date,hour" });
+  } catch (e) {
+    console.error("[Snapshot] Save failed:", e);
+  }
+}
+
 export async function getSummary(userId: string): Promise<DashboardSummary> {
   const apps = await getApps(userId);
 
