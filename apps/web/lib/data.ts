@@ -161,6 +161,28 @@ export async function getAdUnitRevenue(userId: string): Promise<AdUnitRevenue[]>
   });
 }
 
+export async function getYesterdaySameHourRevenue(userId: string): Promise<number | null> {
+  const supabase = getSupabaseAdmin();
+  const nowBR = new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
+  const brDate = new Date(nowBR);
+  const brHour = brDate.getHours();
+
+  const yesterday = new Date(brDate);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = toBrazilDateStr(yesterday);
+
+  const { data, error } = await supabase
+    .from("revenue_snapshots")
+    .select("revenue")
+    .eq("user_id", userId)
+    .eq("date", yesterdayStr)
+    .eq("hour", brHour)
+    .single();
+
+  if (error || !data) return null;
+  return Math.round(Number((data as { revenue: number }).revenue) * 100) / 100;
+}
+
 export async function getSummary(userId: string): Promise<DashboardSummary> {
   const apps = await getApps(userId);
 

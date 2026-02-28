@@ -5,7 +5,7 @@ import { AppStatusList } from "@/components/app-status-list";
 import { KpiCard } from "@diced/ui/kpi-card";
 import { Card } from "@diced/ui/card";
 import { KpiIcons } from "@/components/kpi-icons";
-import { getSummary, getDailyRevenue, getApps } from "@/lib/data";
+import { getSummary, getDailyRevenue, getApps, getYesterdaySameHourRevenue } from "@/lib/data";
 import { toBrazilDateStr } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
@@ -18,10 +18,11 @@ export default async function OverviewPage() {
   const { userId } = await auth();
   if (!userId) return null;
 
-  const [summary, dailyRevenue, apps] = await Promise.all([
+  const [summary, dailyRevenue, apps, yesterdaySameHour] = await Promise.all([
     getSummary(userId),
     getDailyRevenue(userId),
     getApps(userId),
+    getYesterdaySameHourRevenue(userId),
   ]);
 
   // Aggregate daily totals
@@ -54,7 +55,7 @@ export default async function OverviewPage() {
       <Header title="Visão Geral" />
       <div className="space-y-4 p-4 md:space-y-6 md:p-6">
         {/* KPI Cards - Row 1: Revenue focus */}
-        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-5">
           <KpiCard
             title="Receita (30d)"
             value={fmt(summary.totalRevenue)}
@@ -75,6 +76,17 @@ export default async function OverviewPage() {
             title="Ontem"
             value={fmt(yesterdayRevenue)}
             icon={KpiIcons.yesterday}
+          />
+          <KpiCard
+            title="Ontem nesse horário"
+            value={yesterdaySameHour !== null ? fmt(yesterdaySameHour) : "—"}
+            change={
+              yesterdaySameHour !== null && todayRevenue > 0
+                ? `${todayRevenue >= yesterdaySameHour ? "+" : ""}${fmt(Math.abs(todayRevenue - yesterdaySameHour))} vs hoje`
+                : yesterdaySameHour === null ? "sem dados ainda" : undefined
+            }
+            changeType={yesterdaySameHour !== null && todayRevenue >= yesterdaySameHour ? "positive" : "negative"}
+            icon={KpiIcons.sameTime}
           />
           <KpiCard
             title="Média Diária"

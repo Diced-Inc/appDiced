@@ -16,13 +16,14 @@ interface RevenueDashboardProps {
   dailyRevenue: DailyRevenue[];
   countryRevenue: CountryRevenue[];
   adUnitRevenue: AdUnitRevenue[];
+  yesterdaySameHour: number | null;
 }
 
 function fmt(v: number) {
   return `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export function RevenueDashboard({ apps, dailyRevenue, countryRevenue, adUnitRevenue }: RevenueDashboardProps) {
+export function RevenueDashboard({ apps, dailyRevenue, countryRevenue, adUnitRevenue, yesterdaySameHour }: RevenueDashboardProps) {
   const [selectedAppId, setSelectedAppId] = useState<string>("all");
 
   const filteredRevenue = useMemo(() => {
@@ -144,11 +145,22 @@ export function RevenueDashboard({ apps, dailyRevenue, countryRevenue, adUnitRev
       </div>
 
       {/* Secondary KPIs */}
-      <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
         <KpiCard
           title="Ontem"
           value={fmt(yesterdayRevenue)}
           icon={KpiIcons.yesterday}
+        />
+        <KpiCard
+          title="Ontem nesse horário"
+          value={yesterdaySameHour !== null ? fmt(yesterdaySameHour) : "—"}
+          change={
+            yesterdaySameHour !== null && todayRevenue > 0
+              ? `${todayRevenue >= yesterdaySameHour ? "+" : ""}${fmt(Math.abs(todayRevenue - yesterdaySameHour))} vs hoje`
+              : yesterdaySameHour === null ? "sem dados ainda" : undefined
+          }
+          changeType={yesterdaySameHour !== null && todayRevenue >= yesterdaySameHour ? "positive" : "negative"}
+          icon={KpiIcons.sameTime}
         />
         <KpiCard
           title="Total de Impressões"

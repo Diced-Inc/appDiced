@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { Header } from "@/components/header";
 import { RevenueDashboard } from "@/components/revenue-dashboard";
-import { getApps, getDailyRevenue, getCountryRevenue, getAdUnitRevenue } from "@/lib/data";
+import { getApps, getDailyRevenue, getCountryRevenue, getAdUnitRevenue, getYesterdaySameHourRevenue } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -9,11 +9,12 @@ export default async function RevenuePage() {
   const { userId } = await auth();
   if (!userId) return null;
 
-  const [apps, dailyRevenue, countryRevenue, adUnitRevenue] = await Promise.all([
+  const [apps, dailyRevenue, countryRevenue, adUnitRevenue, yesterdaySameHour] = await Promise.all([
     getApps(userId),
     getDailyRevenue(userId),
     getCountryRevenue(userId),
     getAdUnitRevenue(userId),
+    getYesterdaySameHourRevenue(userId),
   ]);
 
   return (
@@ -25,6 +26,7 @@ export default async function RevenuePage() {
           dailyRevenue={dailyRevenue}
           countryRevenue={countryRevenue}
           adUnitRevenue={adUnitRevenue}
+          yesterdaySameHour={yesterdaySameHour}
         />
       </div>
     </div>

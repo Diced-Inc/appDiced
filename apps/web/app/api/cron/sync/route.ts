@@ -10,6 +10,7 @@ import {
   getAdMobAccessToken,
 } from "@/lib/google/admob";
 import { sendPushToUser } from "@/lib/push";
+import { toBrazilDateStr } from "@/lib/date";
 
 interface ApiConnection {
   user_id: string;
@@ -242,6 +243,34 @@ export async function GET(req: NextRequest) {
             updated_at: new Date().toISOString(),
           })
           .eq("id", appId);
+
+        // Save revenue snapshot for "yesterday at same time" comparison
+        try {
+          const nowBR = new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
+          const brDate = new Date(nowBR);
+          const brHour = brDate.getHours();
+          const todayDateStr = toBrazilDateStr();
+
+          // Get today's revenue from daily_revenue
+          const { data: todayData } = await supabase
+            .from("daily_revenue")
+            .select("revenue")
+            .eq("app_id", appId)
+            .eq("date", todayDateStr);
+          const todayRev = (todayData as { revenue: number }[] | null)?.reduce((s, r) => s + Number(r.revenue), 0) ?? 0;
+
+          await supabase
+            .from("revenue_snapshots")
+            .upsert({
+              user_id: userId,
+              date: todayDateStr,
+              hour: brHour,
+              revenue: Math.round(todayRev * 100) / 100,
+              captured_at: new Date().toISOString(),
+            }, { onConflict: "user_id,date,hour" });
+        } catch (e) {
+          console.error(`[Cron] Snapshot save failed for ${userId}:`, e);
+        }
 
         // Notify user if revenue increased by at least $0.20
         const diff = newRevenue - oldRevenue;
