@@ -464,7 +464,26 @@ export async function POST() {
       .eq("provider", "admob")
       .eq("user_id", userId);
 
-    return NextResponse.json({ success: true, totalRevenue, totalImpressions });
+    // Debug: collect per-app breakdown and unmapped keys
+    const debugPerApp: Record<string, { revenue: number; impressions: number }> = {};
+    for (const [appId, totals] of perAppTotals) {
+      const app = allApps.find((a) => a.id === appId);
+      debugPerApp[app?.package_name ?? appId] = {
+        revenue: Math.round(totals.revenue * 100) / 100,
+        impressions: totals.impressions,
+      };
+    }
+
+    return NextResponse.json({
+      success: true,
+      totalRevenue: Math.round(totalRevenue * 100) / 100,
+      totalImpressions,
+      rowCount: rows.length,
+      mappingSize: admobIdToDbId.size,
+      appsInDb: allApps.map((a) => a.package_name),
+      perApp: debugPerApp,
+      sampleAppDimensions: rows.slice(0, 5).map((r) => r.dimensionValues?.APP?.value ?? "NO_APP"),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
