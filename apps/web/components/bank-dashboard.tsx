@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { KpiCard } from "@diced/ui/kpi-card";
 import { Card } from "@diced/ui/card";
 
@@ -21,6 +21,10 @@ interface BankData {
 
 function fmt(v: number) {
   return `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function fmtBRL(v: number) {
+  return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 const iconProps = {
@@ -54,6 +58,19 @@ export function BankDashboard({ initial }: { initial: BankData }) {
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ amount: "", date: new Date().toISOString().split("T")[0], note: "" });
+  const [usdBrl, setUsdBrl] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL")
+      .then((r) => r.json())
+      .then((d) => {
+        const rate = Number(d?.USDBRL?.bid);
+        if (rate > 0) setUsdBrl(rate);
+      })
+      .catch(() => {});
+  }, []);
+
+  const brl = (usd: number) => usdBrl ? fmtBRL(usd * usdBrl) : undefined;
 
   const refresh = useCallback(async () => {
     const res = await fetch("/api/bank");
@@ -91,17 +108,21 @@ export function BankDashboard({ initial }: { initial: BankData }) {
         <KpiCard
           title="Saldo Disponivel"
           value={fmt(data.balance)}
+          change={brl(data.balance)}
           changeType={data.balance > 0 ? "positive" : "neutral"}
           icon={icons.balance}
         />
         <KpiCard
           title="Receita Total (lifetime)"
           value={fmt(data.totalRevenue)}
+          change={brl(data.totalRevenue)}
+          changeType="neutral"
           icon={icons.revenue}
         />
         <KpiCard
           title="Total Sacado"
           value={fmt(data.totalWithdrawn)}
+          change={brl(data.totalWithdrawn)}
           changeType={data.totalWithdrawn > 0 ? "negative" : "neutral"}
           icon={icons.withdrawn}
         />
@@ -140,8 +161,13 @@ export function BankDashboard({ initial }: { initial: BankData }) {
                     <td className="py-3 text-zinc-300">
                       {new Date(w.date + "T12:00:00").toLocaleDateString("pt-BR")}
                     </td>
-                    <td className="py-3 font-medium text-red-400">
-                      -{fmt(Number(w.amount))}
+                    <td className="py-3">
+                      <span className="font-medium text-red-400">-{fmt(Number(w.amount))}</span>
+                      {usdBrl && (
+                        <span className="ml-2 text-xs text-zinc-500">
+                          {fmtBRL(Number(w.amount) * usdBrl)}
+                        </span>
+                      )}
                     </td>
                     <td className="py-3 text-zinc-400">
                       {w.note || "—"}
