@@ -196,16 +196,21 @@ export async function POST() {
       });
     }
 
-    // Build mapping: AdMob appId → database app id
+    // Build mapping: AdMob appId/resource name → database app id
     const admobIdToDbId = new Map<string, string>();
     for (const admobApp of admobApps) {
       const pkg = admobApp.linkedAppInfo?.appStoreId;
       if (!pkg) continue;
       const dbApp = allApps.find((a) => a.package_name === pkg);
       if (dbApp) {
+        // Map by appId (ca-app-pub-XXX~YYY)
         admobIdToDbId.set(admobApp.appId, dbApp.id);
+        // Map by resource name (accounts/pub-XXX/apps/YYY)
+        admobIdToDbId.set(admobApp.name, dbApp.id);
+        console.log(`[AdMob] Mapped ${admobApp.appId} / ${admobApp.name} → ${pkg} (${dbApp.id})`);
       }
     }
+    console.log(`[AdMob] Mapping has ${admobIdToDbId.size} entries for ${allApps.length} apps`);
 
     const oldTotalRevenue = allApps.reduce((s, a) => s + (a.revenue ?? 0), 0);
 
@@ -233,6 +238,9 @@ export async function POST() {
 
       // Map AdMob app to database app; fallback to first app
       const dbAppId = admobIdToDbId.get(admobAppId ?? "") ?? allApps[0]!.id;
+      if (admobAppId && !admobIdToDbId.has(admobAppId)) {
+        console.log(`[AdMob] UNMAPPED app dimension: "${admobAppId}" — falling back to first app`);
+      }
 
       const revenue = earningsMicros
         ? Number(earningsMicros) / 1_000_000

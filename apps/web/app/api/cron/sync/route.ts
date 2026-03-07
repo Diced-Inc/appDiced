@@ -198,7 +198,7 @@ export async function GET(req: NextRequest) {
       const allAppIds = allApps.map((a) => a.id);
 
       if (allApps.length > 0) {
-        // Build mapping: AdMob appId → database app id
+        // Build mapping: AdMob appId/resource name → database app id
         const admobIdToDbId = new Map<string, string>();
         try {
           const admobAppsList = await listAdMobApps(userId, accountId);
@@ -206,7 +206,10 @@ export async function GET(req: NextRequest) {
             const pkg = admobApp.linkedAppInfo?.appStoreId;
             if (!pkg) continue;
             const dbApp = allApps.find((a) => a.package_name === pkg);
-            if (dbApp) admobIdToDbId.set(admobApp.appId, dbApp.id);
+            if (dbApp) {
+              admobIdToDbId.set(admobApp.appId, dbApp.id);
+              admobIdToDbId.set(admobApp.name, dbApp.id);
+            }
           }
         } catch (e) {
           console.error(`[Cron] Failed to list AdMob apps for mapping:`, e);
