@@ -138,7 +138,7 @@ export async function fetchAdMobReport(
       body: JSON.stringify({
         reportSpec: {
           dateRange: { startDate, endDate },
-          dimensions: ["DATE"],
+          dimensions: ["DATE", "APP"],
           metrics: ["ESTIMATED_EARNINGS", "IMPRESSIONS", "MATCHED_REQUESTS"],
           sortConditions: [{ dimension: "DATE", order: "ASCENDING" }],
         },

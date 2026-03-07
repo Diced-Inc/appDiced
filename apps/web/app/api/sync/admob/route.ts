@@ -15,6 +15,7 @@ import { toBrazilDateStr } from "@/lib/date";
 interface AdMobReportRow {
   dimensionValues?: {
     DATE?: { value?: string };
+    APP?: { value?: string; displayLabel?: string };
     COUNTRY?: { value?: string };
     AD_UNIT?: { value?: string; displayLabel?: string };
   };
@@ -157,19 +158,17 @@ export async function POST() {
       }
     );
 
-    // Get user's apps — pick first as revenue target, track all IDs
+    // Get user's apps with package_name for mapping
     const { data: appsData } = await supabase
       .from("apps")
-      .select("id")
+      .select("id, package_name, revenue")
       .eq("user_id", userId)
       .order("created_at", { ascending: true });
 
-    const allApps = (appsData as { id: string }[] | null) ?? [];
-    const appId = allApps[0]?.id;
+    const allApps = (appsData as { id: string; package_name: string; revenue: number }[] | null) ?? [];
     const allAppIds = allApps.map((a) => a.id);
 
-    if (!appId) {
-      // No apps found — still mark connection as successful
+    if (allApps.length === 0) {
       console.log(`[AdMob] No apps found for user ${userId}. AdMob returned ${admobApps.length} apps.`);
 
       if (logEntry) {
@@ -197,21 +196,26 @@ export async function POST() {
       });
     }
 
-    // Delete ALL old daily_revenue for user's apps (account-level snapshot)
+    // Build mapping: AdMob appId → database app id
+    const admobIdToDbId = new Map<string, string>();
+    for (const admobApp of admobApps) {
+      const pkg = admobApp.linkedAppInfo?.appStoreId;
+      if (!pkg) continue;
+      const dbApp = allApps.find((a) => a.package_name === pkg);
+      if (dbApp) {
+        admobIdToDbId.set(admobApp.appId, dbApp.id);
+      }
+    }
+
+    const oldTotalRevenue = allApps.reduce((s, a) => s + (a.revenue ?? 0), 0);
+
+    // Delete ALL old daily_revenue for user's apps (replaced each sync)
     if (allAppIds.length > 0) {
       await supabase.from("daily_revenue").delete().in("app_id", allAppIds);
     }
 
-    // Reset revenue on all apps except the target
-    if (allAppIds.length > 1) {
-      await supabase
-        .from("apps")
-        .update({ revenue: 0, impressions: 0, ecpm: 0, updated_at: new Date().toISOString() })
-        .eq("user_id", userId)
-        .neq("id", appId);
-    }
-
-    // Parse report rows
+    // Parse report rows — now with per-app data (DATE + APP dimensions)
+    const perAppTotals = new Map<string, { revenue: number; impressions: number }>();
     let totalRevenue = 0;
     let totalImpressions = 0;
 
@@ -221,10 +225,14 @@ export async function POST() {
 
     for (const row of rows) {
       const dateStr = row.dimensionValues?.DATE?.value;
+      const admobAppId = row.dimensionValues?.APP?.value;
       const earningsMicros = row.metricValues?.ESTIMATED_EARNINGS?.microsValue;
       const impressions = row.metricValues?.IMPRESSIONS?.integerValue;
 
       if (!dateStr) continue;
+
+      // Map AdMob app to database app; fallback to first app
+      const dbAppId = admobIdToDbId.get(admobAppId ?? "") ?? allApps[0]!.id;
 
       const revenue = earningsMicros
         ? Number(earningsMicros) / 1_000_000
@@ -234,39 +242,43 @@ export async function POST() {
       totalRevenue += revenue;
       totalImpressions += impressionCount;
 
+      // Accumulate per-app totals
+      const prev = perAppTotals.get(dbAppId) ?? { revenue: 0, impressions: 0 };
+      perAppTotals.set(dbAppId, {
+        revenue: prev.revenue + revenue,
+        impressions: prev.impressions + impressionCount,
+      });
+
       const formattedDate = `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
 
       await supabase.from("daily_revenue").insert({
-        app_id: appId,
+        app_id: dbAppId,
         date: formattedDate,
         revenue: Math.round(revenue * 100) / 100,
       });
     }
 
-    const ecpm =
-      totalImpressions > 0
-        ? Math.round((totalRevenue / totalImpressions) * 1000 * 100) / 100
+    // Update each app with its own revenue totals
+    for (const app of allApps) {
+      const totals = perAppTotals.get(app.id);
+      const appRevenue = totals ? Math.round(totals.revenue * 100) / 100 : 0;
+      const appImpressions = totals?.impressions ?? 0;
+      const appEcpm = appImpressions > 0
+        ? Math.round((totals!.revenue / appImpressions) * 1000 * 100) / 100
         : 0;
 
-    const newRevenue = Math.round(totalRevenue * 100) / 100;
+      await supabase
+        .from("apps")
+        .update({
+          revenue: appRevenue,
+          impressions: appImpressions,
+          ecpm: appEcpm,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", app.id);
+    }
 
-    // Get old revenue to detect changes
-    const { data: oldApp } = await supabase
-      .from("apps")
-      .select("revenue")
-      .eq("id", appId)
-      .single();
-    const oldRevenue = (oldApp as { revenue: number } | null)?.revenue ?? 0;
-
-    await supabase
-      .from("apps")
-      .update({
-        revenue: newRevenue,
-        impressions: totalImpressions,
-        ecpm,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", appId);
+    const newTotalRevenue = Math.round(totalRevenue * 100) / 100;
 
     // Save revenue snapshot for "yesterday at same time" comparison
     try {
@@ -278,7 +290,7 @@ export async function POST() {
       const { data: todayData } = await supabase
         .from("daily_revenue")
         .select("revenue")
-        .eq("app_id", appId)
+        .in("app_id", allAppIds)
         .eq("date", todayDateStr);
       const todayRev = (todayData as { revenue: number }[] | null)?.reduce((s, r) => s + Number(r.revenue), 0) ?? 0;
 
@@ -295,14 +307,14 @@ export async function POST() {
       console.error("[AdMob] Snapshot save failed:", e);
     }
 
-    // Notify if revenue increased by at least $0.20
-    const diff = newRevenue - oldRevenue;
+    // Notify if total revenue increased by at least $0.20
+    const diff = newTotalRevenue - oldTotalRevenue;
     if (diff >= 0.20) {
       const sign = diff > 0 ? "+" : "";
       try {
         await sendPushToUser(userId, {
           title: "Receita Atualizada",
-          body: `Nova receita: $${newRevenue.toFixed(2)} (${sign}$${diff.toFixed(2)})`,
+          body: `Nova receita: $${newTotalRevenue.toFixed(2)} (${sign}$${diff.toFixed(2)})`,
           url: "/revenue",
         });
       } catch (e) {
