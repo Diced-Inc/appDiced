@@ -126,6 +126,23 @@ export async function GET(req: NextRequest) {
           const packageName = admobApp.linkedAppInfo?.appStoreId;
           if (!packageName) continue;
 
+          // Clean up old ca-app-pub-* entry if it exists for this AdMob app
+          const admobId = admobApp.appId;
+          if (admobId && admobId.startsWith("ca-app-pub-")) {
+            const { data: oldEntry } = await supabase
+              .from("apps")
+              .select("id")
+              .eq("package_name", admobId)
+              .eq("user_id", userId)
+              .single();
+
+            if (oldEntry) {
+              await supabase.from("daily_revenue").delete().eq("app_id", (oldEntry as { id: string }).id);
+              await supabase.from("apps").delete().eq("id", (oldEntry as { id: string }).id);
+              console.log(`[Cron] Cleaned up duplicate: ${admobId} → ${packageName}`);
+            }
+          }
+
           const { data: existing } = await supabase
             .from("apps")
             .select("id")

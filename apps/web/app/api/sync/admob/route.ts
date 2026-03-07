@@ -74,13 +74,37 @@ export async function POST() {
     console.log(`[AdMob] Found ${admobApps.length} apps in account`);
 
     for (const admobApp of admobApps) {
-      const packageName = admobApp.linkedAppInfo?.appStoreId ?? admobApp.appId;
+      const packageName = admobApp.linkedAppInfo?.appStoreId;
+      if (!packageName) {
+        console.log(`[AdMob] Skipping unlinked app: ${admobApp.appId}`);
+        continue;
+      }
+
       const displayName =
         admobApp.linkedAppInfo?.displayName ??
         admobApp.manualAppInfo?.displayName ??
         packageName;
 
       console.log(`[AdMob] Processing app: ${displayName} (${packageName}, platform: ${admobApp.platform})`);
+
+      // Clean up old ca-app-pub-* entry if it exists for this AdMob app
+      const admobId = admobApp.appId;
+      if (admobId && admobId.startsWith("ca-app-pub-")) {
+        const { data: oldEntry } = await supabase
+          .from("apps")
+          .select("id")
+          .eq("package_name", admobId)
+          .eq("user_id", userId)
+          .single();
+
+        if (oldEntry) {
+          // Delete daily_revenue linked to the old duplicate entry
+          await supabase.from("daily_revenue").delete().eq("app_id", (oldEntry as { id: string }).id);
+          // Delete the old duplicate app entry
+          await supabase.from("apps").delete().eq("id", (oldEntry as { id: string }).id);
+          console.log(`[AdMob] Cleaned up duplicate: ${admobId} → ${packageName}`);
+        }
+      }
 
       const { data: existing } = await supabase
         .from("apps")
@@ -90,16 +114,12 @@ export async function POST() {
         .single();
 
       if (!existing) {
-        let icon = "📱";
-        if (admobApp.linkedAppInfo?.appStoreId) {
-          const storeInfo = await fetchPlayStoreInfo(packageName);
-          icon = storeInfo.icon ?? "📱";
-        }
+        const storeInfo = await fetchPlayStoreInfo(packageName);
 
         const { error: insertError } = await supabase.from("apps").insert({
           name: displayName,
           package_name: packageName,
-          icon,
+          icon: storeInfo.icon ?? "📱",
           status: "published",
           rating: 0,
           downloads: 0,
@@ -111,16 +131,6 @@ export async function POST() {
 
         if (insertError) {
           console.error(`[AdMob] Insert failed for ${packageName}:`, insertError.message);
-          // If unique constraint on package_name alone, try updating existing row to claim it
-          const { error: claimError } = await supabase
-            .from("apps")
-            .update({ user_id: userId, updated_at: new Date().toISOString() })
-            .eq("package_name", packageName)
-            .is("user_id", null);
-
-          if (claimError) {
-            console.error(`[AdMob] Claim also failed for ${packageName}:`, claimError.message);
-          }
         } else {
           console.log(`[AdMob] Discovered app: ${displayName} (${packageName})`);
         }

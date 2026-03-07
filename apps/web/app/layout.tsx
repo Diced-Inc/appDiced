@@ -53,7 +53,13 @@ export default function RootLayout({
   );
 
   return (
-    <ClerkProvider appearance={{ baseTheme: dark }}>
+    <ClerkProvider
+      appearance={{ baseTheme: dark }}
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+      signInForceRedirectUrl="/"
+      signUpForceRedirectUrl="/"
+    >
       {content}
     </ClerkProvider>
   );
