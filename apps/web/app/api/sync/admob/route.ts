@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import {
   fetchAdMobReport,
@@ -25,12 +25,7 @@ interface AdMobReportRow {
   };
 }
 
-export async function POST() {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+async function syncAdmobForUser(userId: string) {
   const supabase = getSupabaseAdmin();
 
   // Check if user has an AdMob connection before doing anything
@@ -44,7 +39,7 @@ export async function POST() {
   const connection = connData as { config: Record<string, string>; refresh_token: string | null } | null;
 
   if (!connection?.refresh_token) {
-    return NextResponse.json({ skipped: true, reason: "not_connected" });
+    return { skipped: true, reason: "not_connected" };
   }
 
   const { data: logData } = await supabase
@@ -184,11 +179,11 @@ export async function POST() {
         .eq("provider", "admob")
         .eq("user_id", userId);
 
-      return NextResponse.json({
+      return {
         success: true,
         warning: "No apps found in AdMob account. Make sure your apps are linked in AdMob.",
         admobAppsFound: admobApps.length,
-      });
+      };
     }
 
     // Build mapping: AdMob appId/resource name → database app id
@@ -479,12 +474,12 @@ export async function POST() {
       .eq("provider", "admob")
       .eq("user_id", userId);
 
-    return NextResponse.json({
+    return {
       success: true,
       totalRevenue: Math.round(totalRevenue * 100) / 100,
       totalImpressions,
       dailyEntries: dailyPerApp.size,
-    });
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
@@ -500,6 +495,44 @@ export async function POST() {
     }
 
     console.error("[AdMob Sync Error]", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return { error: message };
   }
+}
+
+export async function POST() {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const result = await syncAdmobForUser(userId);
+  if ("error" in result) {
+    return NextResponse.json(result, { status: 500 });
+  }
+  return NextResponse.json(result);
+}
+
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get("authorization");
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data: connections } = await supabase
+    .from("api_connections")
+    .select("user_id")
+    .eq("provider", "admob")
+    .not("refresh_token", "is", null);
+
+  if (!connections || connections.length === 0) {
+    return NextResponse.json({ skipped: true, reason: "no_users" });
+  }
+
+  const results: Record<string, unknown> = {};
+  for (const conn of connections) {
+    const uid = (conn as { user_id: string }).user_id;
+    results[uid] = await syncAdmobForUser(uid);
+  }
+
+  return NextResponse.json({ success: true, results });
 }
