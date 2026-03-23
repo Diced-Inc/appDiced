@@ -131,16 +131,16 @@ interface AdUnitRevenueRow {
   ad_unit_name: string;
   revenue: number;
   impressions: number;
+  period_start: string;
 }
 
 export async function getAdUnitRevenue(userId: string): Promise<AdUnitRevenue[]> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("ad_unit_revenue")
-    .select("ad_unit_id, ad_unit_name, revenue, impressions")
+    .select("ad_unit_id, ad_unit_name, revenue, impressions, period_start")
     .eq("user_id", userId)
-    .order("revenue", { ascending: false })
-    .limit(20);
+    .order("period_start", { ascending: false });
 
   if (error) {
     console.error("Failed to fetch ad unit revenue:", error);
@@ -157,6 +157,7 @@ export async function getAdUnitRevenue(userId: string): Promise<AdUnitRevenue[]>
       revenue,
       impressions,
       ecpm,
+      date: row.period_start,
     };
   });
 }

@@ -3,6 +3,7 @@ import { Card } from "./card";
 interface KpiCardProps {
   title: string;
   value: string;
+  subtitle?: string;
   change?: string;
   changeType?: "positive" | "negative" | "neutral";
   icon: React.ReactNode;
@@ -11,6 +12,7 @@ interface KpiCardProps {
 export function KpiCard({
   title,
   value,
+  subtitle,
   change,
   changeType = "neutral",
   icon,
@@ -29,6 +31,9 @@ export function KpiCard({
           <p className="mt-1 truncate text-2xl font-bold text-white font-heading md:mt-2 md:text-3xl">
             {value}
           </p>
+          {subtitle && (
+            <p className="text-xs text-zinc-400">{subtitle}</p>
+          )}
           {change && (
             <p className={`mt-1 text-xs md:text-sm ${changeColor}`}>{change}</p>
           )}

@@ -31,6 +31,7 @@ export interface AdUnitRevenue {
   revenue: number;
   impressions: number;
   ecpm: number;
+  date: string;
 }
 
 export interface DashboardSummary {

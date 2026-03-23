@@ -121,28 +121,24 @@ export async function GET(req: NextRequest) {
 
       // Auto-discover apps
       try {
+        // Clean up ALL junk app entries with ca-app-pub-* as package_name
+        const { data: junkApps } = await supabase
+          .from("apps")
+          .select("id")
+          .eq("user_id", userId)
+          .like("package_name", "ca-app-pub-%");
+
+        if (junkApps && junkApps.length > 0) {
+          const junkIds = (junkApps as { id: string }[]).map((a) => a.id);
+          await supabase.from("daily_revenue").delete().in("app_id", junkIds);
+          await supabase.from("apps").delete().in("id", junkIds);
+          console.log(`[Cron] Cleaned up ${junkIds.length} junk app entries for ${userId}`);
+        }
+
         const admobApps = await listAdMobApps(userId, accountId);
         for (const admobApp of admobApps) {
-          if (admobApp.platform !== "ANDROID") continue;
           const packageName = admobApp.linkedAppInfo?.appStoreId;
           if (!packageName) continue;
-
-          // Clean up old ca-app-pub-* entry if it exists for this AdMob app
-          const admobId = admobApp.appId;
-          if (admobId && admobId.startsWith("ca-app-pub-")) {
-            const { data: oldEntry } = await supabase
-              .from("apps")
-              .select("id")
-              .eq("package_name", admobId)
-              .eq("user_id", userId)
-              .single();
-
-            if (oldEntry) {
-              await supabase.from("daily_revenue").delete().eq("app_id", (oldEntry as { id: string }).id);
-              await supabase.from("apps").delete().eq("id", (oldEntry as { id: string }).id);
-              console.log(`[Cron] Cleaned up duplicate: ${admobId} → ${packageName}`);
-            }
-          }
 
           const { data: existing } = await supabase
             .from("apps")
@@ -223,6 +219,7 @@ export async function GET(req: NextRequest) {
         }
 
         const perAppTotals = new Map<string, { revenue: number; impressions: number }>();
+        const dailyPerApp = new Map<string, number>();
         let totalRevenue = 0;
         let totalImpressions = 0;
         const rows = Array.isArray(report)
@@ -257,10 +254,17 @@ export async function GET(req: NextRequest) {
           });
 
           const formattedDate = `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
+          const dailyKey = `${dbAppId}|${formattedDate}`;
+          dailyPerApp.set(dailyKey, (dailyPerApp.get(dailyKey) ?? 0) + revenue);
+        }
+
+        // Insert aggregated daily revenue (one row per app per date)
+        for (const [key, rev] of dailyPerApp) {
+          const [appId, date] = key.split("|");
           await supabase.from("daily_revenue").insert({
-            app_id: dbAppId,
-            date: formattedDate,
-            revenue: Math.round(revenue * 100) / 100,
+            app_id: appId,
+            date,
+            revenue: Math.round(rev * 100) / 100,
           });
         }
 
@@ -313,9 +317,9 @@ export async function GET(req: NextRequest) {
           console.error(`[Cron] Snapshot save failed for ${userId}:`, e);
         }
 
-        // Notify user if total revenue increased by at least $0.20
+        // Notify user if total revenue increased by at least $1.00
         const diff = newTotalRevenue - oldTotalRevenue;
-        if (diff >= 0.20) {
+        if (diff >= 1.00) {
           const sign = diff > 0 ? "+" : "";
           try {
             await sendPushToUser(userId, {
@@ -397,34 +401,46 @@ export async function GET(req: NextRequest) {
               .map((item: ReportRow) => item.row!)
           : [];
 
-        const periodStart = startDate.toISOString().split("T")[0];
-        const periodEnd = endDate.toISOString().split("T")[0];
-
         // Delete ALL old ad unit data for user (snapshot — replaced each sync)
         await supabase
           .from("ad_unit_revenue")
           .delete()
           .eq("user_id", userId);
 
+        // Aggregate by (ad_unit, date)
+        const adUnitDaily = new Map<string, { name: string; revenue: number; impressions: number }>();
         for (const row of adUnitRows) {
+          const dateStr = row.dimensionValues?.DATE?.value;
           const adUnitId = (row.dimensionValues as Record<string, { value?: string; displayLabel?: string }> | undefined)?.AD_UNIT?.value;
           const adUnitName = (row.dimensionValues as Record<string, { value?: string; displayLabel?: string }> | undefined)?.AD_UNIT?.displayLabel ?? adUnitId ?? "";
           const earningsMicros = row.metricValues?.ESTIMATED_EARNINGS?.microsValue;
           const impressions = row.metricValues?.IMPRESSIONS?.integerValue;
-          if (!adUnitId) continue;
+          if (!adUnitId || !dateStr) continue;
 
           const revenue = earningsMicros ? Number(earningsMicros) / 1_000_000 : 0;
           const impressionCount = impressions ? Number(impressions) : 0;
           if (revenue <= 0 && impressionCount <= 0) continue;
 
+          const formattedDate = `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
+          const key = `${adUnitId}|${formattedDate}`;
+          const prev = adUnitDaily.get(key) ?? { name: adUnitName, revenue: 0, impressions: 0 };
+          adUnitDaily.set(key, {
+            name: adUnitName,
+            revenue: prev.revenue + revenue,
+            impressions: prev.impressions + impressionCount,
+          });
+        }
+
+        for (const [key, data] of adUnitDaily) {
+          const [adUnitId, date] = key.split("|");
           await supabase.from("ad_unit_revenue").insert({
             user_id: userId,
             ad_unit_id: adUnitId,
-            ad_unit_name: adUnitName,
-            revenue: Math.round(revenue * 10000) / 10000,
-            impressions: impressionCount,
-            period_start: periodStart,
-            period_end: periodEnd,
+            ad_unit_name: data.name,
+            revenue: Math.round(data.revenue * 10000) / 10000,
+            impressions: data.impressions,
+            period_start: date,
+            period_end: date,
           });
         }
       } catch (e) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { DicedApp, DailyRevenue, CountryRevenue, AdUnitRevenue } from "@/lib/types";
 import { KpiCard } from "@diced/ui/kpi-card";
 import { Card } from "@diced/ui/card";
@@ -23,8 +23,20 @@ function fmt(v: number) {
   return `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function fmtBRL(v: number) {
+  return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export function RevenueDashboard({ apps, dailyRevenue, countryRevenue, adUnitRevenue, yesterdaySameHour }: RevenueDashboardProps) {
   const [selectedAppId, setSelectedAppId] = useState<string>("all");
+  const [usdBrl, setUsdBrl] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL")
+      .then((r) => r.json())
+      .then((d) => setUsdBrl(parseFloat(d?.USDBRL?.bid) || null))
+      .catch(() => {});
+  }, []);
 
   const filteredRevenue = useMemo(() => {
     const rows =
@@ -126,6 +138,7 @@ export function RevenueDashboard({ apps, dailyRevenue, countryRevenue, adUnitRev
         <KpiCard
           title="Hoje"
           value={fmt(todayRevenue)}
+          subtitle={usdBrl ? fmtBRL(todayRevenue * usdBrl) : undefined}
           change={todayDiff !== 0 ? `${todayDiff >= 0 ? "+" : ""}${fmt(Math.abs(todayDiff))} vs ontem` : undefined}
           changeType={todayDiff >= 0 ? "positive" : "negative"}
           icon={KpiIcons.today}

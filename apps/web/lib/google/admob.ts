@@ -204,7 +204,7 @@ export async function fetchAdMobAdUnitReport(
       body: JSON.stringify({
         reportSpec: {
           dateRange: { startDate, endDate },
-          dimensions: ["AD_UNIT"],
+          dimensions: ["DATE", "AD_UNIT"],
           metrics: ["ESTIMATED_EARNINGS", "IMPRESSIONS"],
           sortConditions: [{ metric: "ESTIMATED_EARNINGS", order: "DESCENDING" }],
         },

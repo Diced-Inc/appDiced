@@ -14,15 +14,30 @@ function fmt(v: number) {
   return `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function fmtBRL(v: number) {
+  return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+async function getUsdBrl(): Promise<number | null> {
+  try {
+    const res = await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL", { next: { revalidate: 3600 } });
+    const data = await res.json();
+    return parseFloat(data?.USDBRL?.bid) || null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function OverviewPage() {
   const { userId } = await auth();
   if (!userId) return null;
 
-  const [summary, dailyRevenue, apps, yesterdaySameHour] = await Promise.all([
+  const [summary, dailyRevenue, apps, yesterdaySameHour, usdBrl] = await Promise.all([
     getSummary(userId),
     getDailyRevenue(userId),
     getApps(userId),
     getYesterdaySameHourRevenue(userId),
+    getUsdBrl(),
   ]);
 
   // Save snapshot for current hour (fire and forget)
@@ -67,6 +82,7 @@ export default async function OverviewPage() {
           <KpiCard
             title="Hoje"
             value={fmt(todayRevenue)}
+            subtitle={usdBrl ? fmtBRL(todayRevenue * usdBrl) : undefined}
             change={
               todayDiff !== 0
                 ? `${todayDiff >= 0 ? "+" : ""}${fmt(Math.abs(todayDiff))} vs ontem`
