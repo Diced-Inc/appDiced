@@ -3,54 +3,49 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
-const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutos
 
+/**
+ * A coleta pesada roda no cron (hourly/daily). Aqui só:
+ *  1. um sync leve (7d) no primeiro load — fallback caso o cron externo caia
+ *  2. router.refresh() periódico e ao navegar, pra puxar dados novos do cron
+ */
 export function AutoSync() {
   const router = useRouter();
   const pathname = usePathname();
-  const syncing = useRef(false);
   const initialSyncDone = useRef(false);
 
-  const sync = useCallback(async () => {
-    if (syncing.current) return;
-    syncing.current = true;
-
+  const initialSync = useCallback(async () => {
     try {
-      const results = await Promise.allSettled([
-        fetch("/api/sync/admob", { method: "POST" }).then((r) => r.json()),
-        fetch("/api/sync/play-store", { method: "POST" }),
-      ]);
-
-      // Only refresh if admob sync actually ran (not skipped)
-      const admobResult = results[0].status === "fulfilled" ? results[0].value : null;
-      if (admobResult && !admobResult.skipped) {
+      const res = await fetch("/api/sync/admob", { method: "POST" });
+      const result = await res.json().catch(() => null);
+      if (result && !result.skipped) {
         router.refresh();
       }
-    } finally {
-      syncing.current = false;
+    } catch {
+      // silencioso — o cron cobre
     }
   }, [router]);
 
-  // Sync on page load (once)
   useEffect(() => {
     if (!initialSyncDone.current) {
       initialSyncDone.current = true;
-      sync();
+      initialSync();
     }
-  }, [sync]);
+  }, [initialSync]);
 
-  // Refresh data when navigating between pages (data may have been updated by cron)
+  // Dados podem ter sido atualizados pelo cron — refresh ao navegar
   useEffect(() => {
     if (initialSyncDone.current) {
       router.refresh();
     }
   }, [pathname, router]);
 
-  // Periodic sync
+  // Refresh periódico (sem sync — só re-render dos server components)
   useEffect(() => {
-    const id = setInterval(sync, SYNC_INTERVAL);
+    const id = setInterval(() => router.refresh(), REFRESH_INTERVAL);
     return () => clearInterval(id);
-  }, [sync]);
+  }, [router]);
 
   return null;
 }
