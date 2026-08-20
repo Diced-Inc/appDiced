@@ -2,6 +2,8 @@ export interface PlayStoreInfo {
   icon: string | null;
   rating: number | null;
   downloads: number | null;
+  /** false quando a página do app não existe mais na Play (404 = removido/suspenso) */
+  found: boolean;
 }
 
 function parseDownloads(text: string): number | null {
@@ -29,7 +31,7 @@ function parseDownloads(text: string): number | null {
 export async function fetchPlayStoreInfo(
   packageName: string
 ): Promise<PlayStoreInfo> {
-  const result: PlayStoreInfo = { icon: null, rating: null, downloads: null };
+  const result: PlayStoreInfo = { icon: null, rating: null, downloads: null, found: true };
 
   try {
     const res = await fetch(
@@ -42,6 +44,10 @@ export async function fetchPlayStoreInfo(
       }
     );
 
+    if (res.status === 404) {
+      result.found = false;
+      return result;
+    }
     if (!res.ok) return result;
 
     const html = await res.text();

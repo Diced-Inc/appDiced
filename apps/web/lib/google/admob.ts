@@ -117,11 +117,21 @@ export async function getAdMobAccessToken(userId: string): Promise<string | null
   }
 }
 
-export async function fetchAdMobReport(
+/** "2026-08-15" → formato de data da AdMob API */
+function toAdMobDate(dateStr: string) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return { year: year!, month: month!, day: day! };
+}
+
+/**
+ * Relatório de rede genérico — sempre com dimensão DATE pra alimentar o
+ * livro-razão diário (daily_revenue / country_revenue / ad_unit_revenue).
+ */
+export async function fetchAdMobNetworkReport(
   userId: string,
   accountId: string,
-  startDate: { year: number; month: number; day: number },
-  endDate: { year: number; month: number; day: number }
+  range: { from: string; to: string },
+  dimension: "APP" | "COUNTRY" | "AD_UNIT"
 ) {
   const token = await getAdMobAccessToken(userId);
   if (!token) throw new Error("No valid AdMob token");
@@ -137,82 +147,16 @@ export async function fetchAdMobReport(
       },
       body: JSON.stringify({
         reportSpec: {
-          dateRange: { startDate, endDate },
-          dimensions: ["DATE", "APP"],
-          metrics: ["ESTIMATED_EARNINGS", "IMPRESSIONS", "MATCHED_REQUESTS"],
+          dateRange: { startDate: toAdMobDate(range.from), endDate: toAdMobDate(range.to) },
+          dimensions: ["DATE", dimension],
+          metrics: ["ESTIMATED_EARNINGS", "IMPRESSIONS"],
           sortConditions: [{ dimension: "DATE", order: "ASCENDING" }],
         },
       }),
     }
   );
 
-  if (!res.ok) throw new Error(`AdMob report failed: ${await res.text()}`);
-  return res.json();
-}
-
-export async function fetchAdMobCountryReport(
-  userId: string,
-  accountId: string,
-  startDate: { year: number; month: number; day: number },
-  endDate: { year: number; month: number; day: number }
-) {
-  const token = await getAdMobAccessToken(userId);
-  if (!token) throw new Error("No valid AdMob token");
-
-  const cleanId = accountId.replace(/^accounts\//, "");
-  const res = await fetch(
-    `${ADMOB_API_BASE}/accounts/${cleanId}/networkReport:generate`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        reportSpec: {
-          dateRange: { startDate, endDate },
-          dimensions: ["COUNTRY"],
-          metrics: ["ESTIMATED_EARNINGS", "IMPRESSIONS"],
-          sortConditions: [{ metric: "ESTIMATED_EARNINGS", order: "DESCENDING" }],
-        },
-      }),
-    }
-  );
-
-  if (!res.ok) throw new Error(`AdMob country report failed: ${await res.text()}`);
-  return res.json();
-}
-
-export async function fetchAdMobAdUnitReport(
-  userId: string,
-  accountId: string,
-  startDate: { year: number; month: number; day: number },
-  endDate: { year: number; month: number; day: number }
-) {
-  const token = await getAdMobAccessToken(userId);
-  if (!token) throw new Error("No valid AdMob token");
-
-  const cleanId = accountId.replace(/^accounts\//, "");
-  const res = await fetch(
-    `${ADMOB_API_BASE}/accounts/${cleanId}/networkReport:generate`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        reportSpec: {
-          dateRange: { startDate, endDate },
-          dimensions: ["DATE", "AD_UNIT"],
-          metrics: ["ESTIMATED_EARNINGS", "IMPRESSIONS"],
-          sortConditions: [{ metric: "ESTIMATED_EARNINGS", order: "DESCENDING" }],
-        },
-      }),
-    }
-  );
-
-  if (!res.ok) throw new Error(`AdMob ad unit report failed: ${await res.text()}`);
+  if (!res.ok) throw new Error(`AdMob ${dimension} report failed: ${await res.text()}`);
   return res.json();
 }
 
