@@ -1,46 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { getBankData } from "@/lib/data";
 
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const supabase = getSupabaseAdmin();
-
-  const [{ data: withdrawals, error: wErr }, { data: apps, error: aErr }] = await Promise.all([
-    supabase
-      .from("withdrawals")
-      .select("id, amount, date, note, created_at")
-      .eq("user_id", userId)
-      .order("date", { ascending: false }),
-    supabase
-      .from("apps")
-      .select("revenue")
-      .eq("user_id", userId),
-  ]);
-
-  if (wErr) return NextResponse.json({ error: wErr.message }, { status: 500 });
-  if (aErr) return NextResponse.json({ error: aErr.message }, { status: 500 });
-
-  const totalRevenue = (apps as { revenue: number }[] | null)?.reduce(
-    (s, a) => s + Number(a.revenue), 0
-  ) ?? 0;
-
-  const totalWithdrawn = (withdrawals as { amount: number }[] | null)?.reduce(
-    (s, w) => s + Number(w.amount), 0
-  ) ?? 0;
-
-  const balance = Math.round((totalRevenue - totalWithdrawn) * 100) / 100;
-
-  return NextResponse.json({
-    balance,
-    totalRevenue: Math.round(totalRevenue * 100) / 100,
-    totalWithdrawn: Math.round(totalWithdrawn * 100) / 100,
-    withdrawals: withdrawals ?? [],
-  });
+  const data = await getBankData(userId);
+  return NextResponse.json(data);
 }
 
+/** Registra um recebimento manual (fora do fluxo marcar-mês-pago). */
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
