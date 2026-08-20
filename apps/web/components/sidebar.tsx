@@ -7,7 +7,6 @@ import { useState, useEffect } from "react";
 const navItems = [
   { href: "/", label: "Visão Geral", icon: "LayoutDashboard" },
   { href: "/apps", label: "Aplicativos", icon: "Smartphone" },
-  { href: "/pipeline", label: "Pipeline", icon: "Pipeline" },
   { href: "/revenue", label: "Receita", icon: "DollarSign" },
   { href: "/banco", label: "Banco", icon: "Landmark" },
   { href: "/settings", label: "Configurações", icon: "Settings" },
@@ -27,11 +26,6 @@ const icons: Record<string, React.ReactNode> = {
   DollarSign: (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  ),
-  Pipeline: (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
     </svg>
   ),
   Landmark: (
