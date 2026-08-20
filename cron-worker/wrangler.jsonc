@@ -1,0 +1,12 @@
+{
+  "name": "appdiced-cron",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-01",
+  "triggers": {
+    // minuto 15 de cada hora (o cron diário da Vercel roda às 07:00 UTC)
+    "crons": ["15 * * * *"]
+  },
+  "observability": {
+    "enabled": true
+  }
+}
