@@ -10,11 +10,11 @@ export function PeriodSelector() {
   const searchParams = useSearchParams();
 
   const raw = searchParams.get("period");
-  const current: PeriodKey = isPeriodKey(raw) ? raw : "30d";
+  const current: PeriodKey = isPeriodKey(raw) ? raw : "month";
 
   function select(key: PeriodKey) {
     const params = new URLSearchParams(searchParams.toString());
-    if (key === "30d") params.delete("period");
+    if (key === "month") params.delete("period");
     else params.set("period", key);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname);

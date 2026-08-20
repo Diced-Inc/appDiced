@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSummary, getDailyRevenue } from "@/lib/data";
 import { toBrazilDateStr } from "@/lib/date";
-import { resolvePeriod } from "@/lib/period";
+import type { DateRange } from "@/lib/period";
 
 export async function GET() {
   const { userId } = await auth();
@@ -10,9 +10,15 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Sparkline dos últimos 7 dias corridos; total = mês corrente
+  const todayForRange = toBrazilDateStr();
+  const since = new Date(`${todayForRange}T12:00:00`);
+  since.setDate(since.getDate() - 6);
+  const last7: DateRange = { from: since.toISOString().split("T")[0]!, to: todayForRange };
+
   const [summary, dailyRevenue] = await Promise.all([
     getSummary(userId),
-    getDailyRevenue(userId, resolvePeriod("7d")),
+    getDailyRevenue(userId, last7),
   ]);
 
   const today = toBrazilDateStr();

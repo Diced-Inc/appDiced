@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { toBrazilDateStr } from "@/lib/date";
-import { resolvePeriod, previousRange, monthOf, type DateRange } from "@/lib/period";
+import { resolvePeriod, monthOf, type DateRange } from "@/lib/period";
 import { round2, ecpm } from "@/lib/sync/parse";
 import { fetchAll } from "@/lib/sync/persist";
 import { estimatePaymentDate, projectMonthEnd, recomputeMonthlyEarnings } from "@/lib/sync/monthly";
@@ -133,7 +133,7 @@ export function computeDailyTotals(ledger: LedgerRow[]): { date: string; revenue
 
 export async function getApps(
   userId: string,
-  range: DateRange = resolvePeriod("30d")
+  range: DateRange = resolvePeriod("month")
 ): Promise<DicedApp[]> {
   const apps = await getAppMeta(userId);
   if (apps.length === 0) return [];
@@ -144,7 +144,7 @@ export async function getApps(
 export async function getAppById(
   id: string,
   userId: string,
-  range: DateRange = resolvePeriod("30d")
+  range: DateRange = resolvePeriod("month")
 ): Promise<DicedApp | null> {
   const apps = await getApps(userId, range);
   return apps.find((a) => a.id === id) ?? null;
@@ -152,7 +152,7 @@ export async function getAppById(
 
 export async function getDailyRevenue(
   userId: string,
-  range: DateRange = resolvePeriod("30d")
+  range: DateRange = resolvePeriod("month")
 ): Promise<DailyRevenue[]> {
   const ledger = await getLedger(userId, range);
   return ledger.map((r) => ({
@@ -165,7 +165,7 @@ export async function getDailyRevenue(
 
 export async function getCountryRevenue(
   userId: string,
-  range: DateRange = resolvePeriod("30d")
+  range: DateRange = resolvePeriod("month")
 ): Promise<CountryRevenue[]> {
   const supabase = getSupabaseAdmin();
 
@@ -220,7 +220,12 @@ export async function getCountryRevenue(
  */
 export async function getAdUnitRevenue(userId: string): Promise<AdUnitRevenue[]> {
   const supabase = getSupabaseAdmin();
-  const range = resolvePeriod("30d");
+  // Janela fixa de 30 dias corridos — os filtros internos do painel
+  // (hoje/ontem/7d/30d) operam dentro dela
+  const today = toBrazilDateStr();
+  const since = new Date(`${today}T12:00:00`);
+  since.setDate(since.getDate() - 29);
+  const range: DateRange = { from: since.toISOString().split("T")[0]!, to: today };
 
   const rows = await fetchAll<{
     ad_unit_id: string;
@@ -277,7 +282,8 @@ export async function getYesterdaySameHourRevenue(userId: string): Promise<numbe
 
 export async function getSummary(
   userId: string,
-  range: DateRange = resolvePeriod("30d")
+  range: DateRange = resolvePeriod("month"),
+  prevRange: DateRange | null = null
 ): Promise<DashboardSummary> {
   const apps = await getAppMeta(userId);
   const appIds = apps.map((a) => a.id);
@@ -292,11 +298,10 @@ export async function getSummary(
       ? Math.round((ratedApps.reduce((s, a) => s + a.rating, 0) / ratedApps.length) * 10) / 10
       : 0;
 
-  // Variação vs janela anterior de mesmo tamanho
+  // Variação vs janela de comparação do calendário (ex.: mês passado até o mesmo dia)
   let revenueChange: number | null = null;
-  const prev = previousRange(range);
-  if (prev && appIds.length > 0) {
-    const prevLedger = await getLedger(userId, prev, appIds);
+  if (prevRange && appIds.length > 0) {
+    const prevLedger = await getLedger(userId, prevRange, appIds);
     const prevRevenue = prevLedger.reduce((s, r) => s + r.revenue, 0);
     if (prevRevenue > 0) {
       revenueChange = Math.round(((totalRevenue - prevRevenue) / prevRevenue) * 1000) / 10;

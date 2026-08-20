@@ -9,7 +9,7 @@ import { KpiIcons } from "@/components/kpi-icons";
 import { getSummary, getDailyRevenue, getApps, getYesterdaySameHourRevenue, computeDailyTotals } from "@/lib/data";
 import { saveRevenueSnapshot } from "@/lib/sync/snapshot";
 import { toBrazilDateStr } from "@/lib/date";
-import { resolvePeriod, isPeriodKey, PERIOD_LABELS, type PeriodKey } from "@/lib/period";
+import { resolvePeriod, comparisonRange, isPeriodKey, PERIOD_LABELS, type PeriodKey } from "@/lib/period";
 
 export const dynamic = "force-dynamic";
 
@@ -40,11 +40,11 @@ export default async function OverviewPage({
   if (!userId) return null;
 
   const { period } = await searchParams;
-  const periodKey: PeriodKey = isPeriodKey(period) ? period : "30d";
+  const periodKey: PeriodKey = isPeriodKey(period) ? period : "month";
   const range = resolvePeriod(periodKey);
 
   const [summary, dailyRevenue, apps, yesterdaySameHour, usdBrl] = await Promise.all([
-    getSummary(userId, range),
+    getSummary(userId, range, comparisonRange(periodKey)),
     getDailyRevenue(userId, range),
     getApps(userId, range),
     getYesterdaySameHourRevenue(userId),
@@ -88,7 +88,7 @@ export default async function OverviewPage({
             value={fmt(summary.totalRevenue)}
             change={
               summary.revenueChange !== null
-                ? `${summary.revenueChange >= 0 ? "+" : ""}${summary.revenueChange}% vs período anterior`
+                ? `${summary.revenueChange >= 0 ? "+" : ""}${summary.revenueChange}% vs ${periodKey === "month" ? "mês passado (mesmo dia)" : "período anterior"}`
                 : undefined
             }
             changeType={

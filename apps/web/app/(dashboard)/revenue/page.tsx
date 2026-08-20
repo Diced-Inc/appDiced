@@ -17,7 +17,7 @@ export default async function RevenuePage({
   if (!userId) return null;
 
   const { period } = await searchParams;
-  const periodKey: PeriodKey = isPeriodKey(period) ? period : "30d";
+  const periodKey: PeriodKey = isPeriodKey(period) ? period : "month";
   const range = resolvePeriod(periodKey);
 
   const [apps, dailyRevenue, countryRevenue, adUnitRevenue, yesterdaySameHour] = await Promise.all([
