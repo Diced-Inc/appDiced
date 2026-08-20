@@ -42,7 +42,6 @@ export function AdUnitRevenueTable({ data }: AdUnitRevenueTableProps) {
   const [period, setPeriod] = useState<Period>("30d");
 
   const aggregated = useMemo(() => {
-    const now = new Date();
     const todayStr = toBrazilDateStr();
     const yesterdayDate = new Date();
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);

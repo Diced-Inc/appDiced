@@ -17,6 +17,7 @@ interface RevenueDashboardProps {
   countryRevenue: CountryRevenue[];
   adUnitRevenue: AdUnitRevenue[];
   yesterdaySameHour: number | null;
+  periodLabel: string;
 }
 
 function fmt(v: number) {
@@ -27,7 +28,7 @@ function fmtBRL(v: number) {
   return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export function RevenueDashboard({ apps, dailyRevenue, countryRevenue, adUnitRevenue, yesterdaySameHour }: RevenueDashboardProps) {
+export function RevenueDashboard({ apps, dailyRevenue, countryRevenue, adUnitRevenue, yesterdaySameHour, periodLabel }: RevenueDashboardProps) {
   const [selectedAppId, setSelectedAppId] = useState<string>("all");
   const [usdBrl, setUsdBrl] = useState<number | null>(null);
 
@@ -131,7 +132,7 @@ export function RevenueDashboard({ apps, dailyRevenue, countryRevenue, adUnitRev
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
         <KpiCard
-          title="Receita Total (30d)"
+          title={`Receita Total (${periodLabel})`}
           value={fmt(totalRevenue)}
           icon={KpiIcons.revenue}
         />

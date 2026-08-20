@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -15,11 +16,28 @@ interface RevenueChartProps {
   data: DailyRevenue[];
 }
 
+/** Acima disso, agrega por mês — 300+ pontos diários viram ruído. */
+const MONTHLY_THRESHOLD = 120;
+
 export function RevenueChart({ data }: RevenueChartProps) {
+  const { points, monthly } = useMemo(() => {
+    if (data.length <= MONTHLY_THRESHOLD) return { points: data, monthly: false };
+
+    const byMonth = new Map<string, number>();
+    for (const row of data) {
+      const m = row.date.substring(0, 7); // YYYY-MM
+      byMonth.set(m, (byMonth.get(m) ?? 0) + row.revenue);
+    }
+    const points = Array.from(byMonth.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, revenue]) => ({ date: `${month}-01`, revenue: Math.round(revenue * 100) / 100 }));
+    return { points, monthly: true };
+  }, [data]);
+
   return (
     <div className="h-[220px] w-full md:h-[300px]">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data}>
+        <AreaChart data={points}>
           <defs>
             <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.3} />
@@ -32,8 +50,10 @@ export function RevenueChart({ data }: RevenueChartProps) {
             stroke="#71717a"
             fontSize={12}
             tickFormatter={(value: string) => {
-              const d = new Date(value);
-              return `${d.getDate()}/${d.getMonth() + 1}`;
+              const d = new Date(`${value}T12:00:00`);
+              return monthly
+                ? d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" })
+                : `${d.getDate()}/${d.getMonth() + 1}`;
             }}
           />
           <YAxis stroke="#71717a" fontSize={12} tickFormatter={(v: number) => `$${v}`} />
@@ -46,8 +66,10 @@ export function RevenueChart({ data }: RevenueChartProps) {
             }}
             formatter={(value) => [`$${Number(value ?? 0).toFixed(2)}`, "Receita"]}
             labelFormatter={(label) => {
-              const d = new Date(String(label));
-              return d.toLocaleDateString("pt-BR");
+              const d = new Date(`${String(label)}T12:00:00`);
+              return monthly
+                ? d.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
+                : d.toLocaleDateString("pt-BR");
             }}
           />
           <Area

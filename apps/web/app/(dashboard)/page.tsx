@@ -2,11 +2,14 @@ import { auth } from "@clerk/nextjs/server";
 import { Header } from "@/components/header";
 import { RevenueChart } from "@/components/revenue-chart";
 import { AppStatusList } from "@/components/app-status-list";
+import { PeriodSelector } from "@/components/period-selector";
 import { KpiCard } from "@diced/ui/kpi-card";
 import { Card } from "@diced/ui/card";
 import { KpiIcons } from "@/components/kpi-icons";
-import { getSummary, getDailyRevenue, getApps, getYesterdaySameHourRevenue, saveRevenueSnapshot } from "@/lib/data";
+import { getSummary, getDailyRevenue, getApps, getYesterdaySameHourRevenue, computeDailyTotals } from "@/lib/data";
+import { saveRevenueSnapshot } from "@/lib/sync/snapshot";
 import { toBrazilDateStr } from "@/lib/date";
+import { resolvePeriod, isPeriodKey, PERIOD_LABELS, type PeriodKey } from "@/lib/period";
 
 export const dynamic = "force-dynamic";
 
@@ -28,29 +31,33 @@ async function getUsdBrl(): Promise<number | null> {
   }
 }
 
-export default async function OverviewPage() {
+export default async function OverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
   const { userId } = await auth();
   if (!userId) return null;
 
+  const { period } = await searchParams;
+  const periodKey: PeriodKey = isPeriodKey(period) ? period : "30d";
+  const range = resolvePeriod(periodKey);
+
   const [summary, dailyRevenue, apps, yesterdaySameHour, usdBrl] = await Promise.all([
-    getSummary(userId),
-    getDailyRevenue(userId),
-    getApps(userId),
+    getSummary(userId, range),
+    getDailyRevenue(userId, range),
+    getApps(userId, range),
     getYesterdaySameHourRevenue(userId),
     getUsdBrl(),
   ]);
 
-  // Save snapshot for current hour (fire and forget)
+  // Snapshot da hora corrente (fire and forget — o cron horário é o titular)
   saveRevenueSnapshot(userId);
 
-  // Aggregate daily totals
-  const byDate = new Map<string, number>();
-  for (const r of dailyRevenue) {
-    byDate.set(r.date, (byDate.get(r.date) ?? 0) + r.revenue);
-  }
-  const sortedDays = Array.from(byDate.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, revenue]) => ({ date, revenue }));
+  const sortedDays = computeDailyTotals(
+    dailyRevenue.map((r) => ({ appId: r.appId ?? "", date: r.date, revenue: r.revenue, impressions: 0 }))
+  );
+  const byDate = new Map(sortedDays.map((d) => [d.date, d.revenue]));
 
   const todayStr = toBrazilDateStr();
   const yesterdayDate = new Date();
@@ -63,20 +70,30 @@ export default async function OverviewPage() {
 
   const dailyAvg =
     sortedDays.length > 0
-      ? Math.round(
-          (sortedDays.reduce((s, r) => s + r.revenue, 0) / sortedDays.length) * 100
-        ) / 100
+      ? Math.round((sortedDays.reduce((s, r) => s + r.revenue, 0) / sortedDays.length) * 100) / 100
       : 0;
+
+  const periodLabel = PERIOD_LABELS[periodKey];
 
   return (
     <div>
       <Header title="Visão Geral" />
       <div className="space-y-4 p-4 md:space-y-6 md:p-6">
+        <PeriodSelector />
+
         {/* KPI Cards - Row 1: Revenue focus */}
         <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-5">
           <KpiCard
-            title="Receita (30d)"
+            title={`Receita (${periodLabel})`}
             value={fmt(summary.totalRevenue)}
+            change={
+              summary.revenueChange !== null
+                ? `${summary.revenueChange >= 0 ? "+" : ""}${summary.revenueChange}% vs período anterior`
+                : undefined
+            }
+            changeType={
+              summary.revenueChange === null ? "neutral" : summary.revenueChange >= 0 ? "positive" : "negative"
+            }
             icon={KpiIcons.revenue}
           />
           <KpiCard
@@ -137,7 +154,7 @@ export default async function OverviewPage() {
         <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2">
             <h2 className="mb-3 text-base font-semibold font-heading md:mb-4 md:text-lg">
-              Receita (Últimos 30 Dias)
+              Receita ({periodLabel})
             </h2>
             <RevenueChart data={sortedDays} />
           </Card>

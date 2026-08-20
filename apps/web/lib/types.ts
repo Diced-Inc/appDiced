@@ -16,6 +16,7 @@ export interface DicedApp {
 export interface DailyRevenue {
   date: string;
   revenue: number;
+  impressions?: number;
   appId?: string;
 }
 
@@ -37,10 +38,24 @@ export interface AdUnitRevenue {
 export interface DashboardSummary {
   totalApps: number;
   totalRevenue: number;
+  totalImpressions: number;
   totalDownloads: number;
   averageRating: number;
-  revenueChange: number;
-  downloadsChange: number;
+  /** % vs janela anterior de mesmo tamanho; null quando não comparável */
+  revenueChange: number | null;
+}
+
+export type MonthlyEarningStatus = "open" | "closed" | "paid";
+
+export interface MonthlyEarning {
+  /** YYYY-MM-01 */
+  month: string;
+  gross: number;
+  status: MonthlyEarningStatus;
+  paidAt: string | null;
+  paidAmount: number | null;
+  /** data estimada do pagamento (dia ~21 do mês seguinte) */
+  estimatedPayment: string;
 }
 
 export type PipelineStage = "code" | "play_store" | "testers" | "closed_test" | "admob_banners" | "ads_version";

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSummary, getDailyRevenue } from "@/lib/data";
 import { toBrazilDateStr } from "@/lib/date";
+import { resolvePeriod } from "@/lib/period";
 
 export async function GET() {
   const { userId } = await auth();
@@ -11,7 +12,7 @@ export async function GET() {
 
   const [summary, dailyRevenue] = await Promise.all([
     getSummary(userId),
-    getDailyRevenue(userId, 7),
+    getDailyRevenue(userId, resolvePeriod("7d")),
   ]);
 
   const today = toBrazilDateStr();
