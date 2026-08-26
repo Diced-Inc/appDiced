@@ -28,8 +28,9 @@ export async function GET(req: NextRequest) {
       const admob = await syncAdMob(userId, {
         lookbackDays: mode === "daily" ? 90 : 7,
       });
-      results[`admob_${userId}`] =
-        "error" in admob ? `error: ${admob.error}` : "skipped" in admob ? admob.reason : "success";
+      // Resultado completo (contagens + warnings): rota é protegida por CRON_SECRET
+      // e os warnings são a única visão de falhas parciais (país / ad unit)
+      results[`admob_${userId}`] = admob;
 
       await saveRevenueSnapshot(userId);
 

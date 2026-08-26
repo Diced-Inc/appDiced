@@ -46,8 +46,7 @@ export async function GET(req: NextRequest) {
   const userIds = await listConnectedAdMobUsers();
   const results: Record<string, unknown> = {};
   for (const uid of userIds) {
-    const r = await syncAdMob(uid, { lookbackDays: 7 });
-    results[uid] = "error" in r ? `error: ${r.error}` : "skipped" in r ? r.reason : "success";
+    results[uid] = await syncAdMob(uid, { lookbackDays: 7 });
   }
   return NextResponse.json({ success: true, results });
 }
