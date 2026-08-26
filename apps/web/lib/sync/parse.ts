@@ -11,7 +11,8 @@ export interface AdMobReportRow {
     AD_UNIT?: { value?: string; displayLabel?: string };
   };
   metricValues?: {
-    ESTIMATED_EARNINGS?: { microsValue?: string };
+    /** networkReport devolve microsValue; mediationReport pode devolver decimalValue (também em micros) */
+    ESTIMATED_EARNINGS?: { microsValue?: string; decimalValue?: string };
     IMPRESSIONS?: { integerValue?: string };
   };
 }
@@ -43,6 +44,14 @@ export function microsToUsd(micros: string | undefined): number {
   return Number.isFinite(n) ? n / 1_000_000 : 0;
 }
 
+/** Soma ESTIMATED_EARNINGS de todas as linhas, independente das dimensões. */
+export function sumEarnings(report: unknown): number {
+  return extractRows(report).reduce((s, row) => {
+    const e = row.metricValues?.ESTIMATED_EARNINGS;
+    return s + microsToUsd(e?.microsValue ?? e?.decimalValue);
+  }, 0);
+}
+
 /** "20260815" → "2026-08-15"; null se malformado */
 export function formatAdMobDate(raw: string | undefined): string | null {
   if (!raw || !/^\d{8}$/.test(raw)) return null;
@@ -61,7 +70,8 @@ export function parseReport(report: unknown, dimension: ReportDimension): Parsed
     const key = dim?.value;
     if (!date || !key) continue;
 
-    const revenue = microsToUsd(row.metricValues?.ESTIMATED_EARNINGS?.microsValue);
+    const earnings = row.metricValues?.ESTIMATED_EARNINGS;
+    const revenue = microsToUsd(earnings?.microsValue ?? earnings?.decimalValue);
     const impressions = Number(row.metricValues?.IMPRESSIONS?.integerValue ?? 0) || 0;
 
     out.push({

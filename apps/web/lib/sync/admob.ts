@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import {
-  fetchAdMobNetworkReport,
+  fetchAdMobReport,
   listAdMobAccounts,
   listAdMobApps,
 } from "@/lib/google/admob";
@@ -8,7 +8,7 @@ import { fetchPlayStoreInfo } from "@/lib/google/play-icon";
 import { sendPushToUser } from "@/lib/push";
 import { toBrazilDateStr } from "@/lib/date";
 import { monthChunks } from "@/lib/period";
-import { parseReport, aggregateBy, round2, round4 } from "@/lib/sync/parse";
+import { parseReport, aggregateBy, sumEarnings, round2, round4 } from "@/lib/sync/parse";
 import { chunkedUpsert } from "@/lib/sync/persist";
 import { recomputeMonthlyEarnings } from "@/lib/sync/monthly";
 import { saveRevenueSnapshot } from "@/lib/sync/snapshot";
@@ -180,8 +180,8 @@ export async function syncAdMob(
     const unmapped = new Set<string>();
 
     for (const range of ranges) {
-      // --- Receita diária por app ---
-      const appReport = await fetchAdMobNetworkReport(userId, accountId, range, "APP");
+      // --- Receita diária por app (mediation = AdMob Network + terceiros) ---
+      const appReport = await fetchAdMobReport(userId, accountId, range, "APP");
       const appRows = parseReport(appReport, "APP");
 
       const mappedRows = appRows.filter((r) => {
@@ -210,7 +210,7 @@ export async function syncAdMob(
 
       // --- Receita diária por país ---
       try {
-        const countryReport = await fetchAdMobNetworkReport(userId, accountId, range, "COUNTRY");
+        const countryReport = await fetchAdMobReport(userId, accountId, range, "COUNTRY");
         const countryAgg = aggregateBy(parseReport(countryReport, "COUNTRY"), (r) => `${r.key}|${r.date}`);
         const countryUpserts = Array.from(countryAgg.entries())
           .filter(([, agg]) => agg.revenue > 0 || agg.impressions > 0)
@@ -225,7 +225,8 @@ export async function syncAdMob(
               period_end: date,
             };
           });
-        await chunkedUpsert(supabase, "country_revenue", countryUpserts, "user_id,country_code,period_start");
+        // índice único legado inclui period_end (= period_start nas linhas diárias)
+        await chunkedUpsert(supabase, "country_revenue", countryUpserts, "user_id,country_code,period_start,period_end");
         countryRows += countryUpserts.length;
       } catch (e) {
         warnings.push(`country report (${range.from}): ${e instanceof Error ? e.message : String(e)}`);
@@ -233,7 +234,7 @@ export async function syncAdMob(
 
       // --- Receita diária por ad unit ---
       try {
-        const adUnitReport = await fetchAdMobNetworkReport(userId, accountId, range, "AD_UNIT");
+        const adUnitReport = await fetchAdMobReport(userId, accountId, range, "AD_UNIT");
         const adUnitAgg = aggregateBy(parseReport(adUnitReport, "AD_UNIT"), (r) => `${r.key}|${r.date}`);
         const adUnitUpserts = Array.from(adUnitAgg.entries())
           .filter(([, agg]) => agg.revenue > 0 || agg.impressions > 0)
@@ -249,11 +250,24 @@ export async function syncAdMob(
               period_end: date,
             };
           });
-        await chunkedUpsert(supabase, "ad_unit_revenue", adUnitUpserts, "user_id,ad_unit_id,period_start");
+        await chunkedUpsert(supabase, "ad_unit_revenue", adUnitUpserts, "user_id,ad_unit_id,period_start,period_end");
         adUnitRows += adUnitUpserts.length;
       } catch (e) {
         warnings.push(`ad unit report (${range.from}): ${e instanceof Error ? e.message : String(e)}`);
       }
+    }
+
+    // Diagnóstico: quanto da receita vem de mediação/terceiros (network ⊂ mediation)
+    try {
+      const [netReport, medReport] = await Promise.all([
+        fetchAdMobReport(userId, accountId, fullRange, null, "network"),
+        fetchAdMobReport(userId, accountId, fullRange, null, "mediation"),
+      ]);
+      const net = round2(sumEarnings(netReport));
+      const med = round2(sumEarnings(medReport));
+      warnings.push(`earnings ${fullRange.from}..${fullRange.to}: network=$${net} mediation=$${med}`);
+    } catch (e) {
+      warnings.push(`diagnóstico network/mediation: ${e instanceof Error ? e.message : String(e)}`);
     }
 
     // Linha da AdMob sem app correspondente = aviso, nunca receita no app errado

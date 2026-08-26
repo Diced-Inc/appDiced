@@ -127,18 +127,27 @@ function toAdMobDate(dateStr: string) {
  * Relatório de rede genérico — sempre com dimensão DATE pra alimentar o
  * livro-razão diário (daily_revenue / country_revenue / ad_unit_revenue).
  */
-export async function fetchAdMobNetworkReport(
+export type AdMobReportKind = "network" | "mediation";
+
+/**
+ * `mediation` = AdMob Network + redes terceiras via mediação/bidding — é o
+ * que o painel do AdMob mostra em "Total de ganhos estimados".
+ * `network` = só AdMob Network (subconjunto). Usado apenas pra diagnóstico.
+ */
+export async function fetchAdMobReport(
   userId: string,
   accountId: string,
   range: { from: string; to: string },
-  dimension: "APP" | "COUNTRY" | "AD_UNIT"
+  dimension: "APP" | "COUNTRY" | "AD_UNIT" | null,
+  kind: AdMobReportKind = "mediation"
 ) {
   const token = await getAdMobAccessToken(userId);
   if (!token) throw new Error("No valid AdMob token");
 
   const cleanId = accountId.replace(/^accounts\//, "");
+  const endpoint = kind === "mediation" ? "mediationReport:generate" : "networkReport:generate";
   const res = await fetch(
-    `${ADMOB_API_BASE}/accounts/${cleanId}/networkReport:generate`,
+    `${ADMOB_API_BASE}/accounts/${cleanId}/${endpoint}`,
     {
       method: "POST",
       headers: {
@@ -148,7 +157,7 @@ export async function fetchAdMobNetworkReport(
       body: JSON.stringify({
         reportSpec: {
           dateRange: { startDate: toAdMobDate(range.from), endDate: toAdMobDate(range.to) },
-          dimensions: ["DATE", dimension],
+          dimensions: dimension ? ["DATE", dimension] : ["DATE"],
           metrics: ["ESTIMATED_EARNINGS", "IMPRESSIONS"],
           sortConditions: [{ dimension: "DATE", order: "ASCENDING" }],
         },
@@ -156,7 +165,7 @@ export async function fetchAdMobNetworkReport(
     }
   );
 
-  if (!res.ok) throw new Error(`AdMob ${dimension} report failed: ${await res.text()}`);
+  if (!res.ok) throw new Error(`AdMob ${kind} ${dimension ?? "DATE"} report failed: ${await res.text()}`);
   return res.json();
 }
 

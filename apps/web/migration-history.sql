@@ -18,6 +18,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_revenue_app_date
 
 -- ============================================================
 -- 2. ad_unit_revenue: série diária acumulativa
+--    NOTA: o índice idx_ad_unit_revenue_unique JÁ EXISTIA (migration-ad-units.sql) com
+--    (user_id, ad_unit_id, period_start, period_end) — o código usa esse onConflict.
 -- ============================================================
 DELETE FROM ad_unit_revenue a
 USING ad_unit_revenue b
@@ -31,6 +33,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_ad_unit_revenue_unique
 
 -- ============================================================
 -- 3. country_revenue: deixa de ser snapshot 30d, vira série diária
+--    NOTA: idx_country_revenue_unique JÁ EXISTIA (migration-country.sql) com period_end;
+--    o CREATE abaixo é no-op e o código usa as 4 colunas no onConflict.
 --    (dados antigos são agregados de 30d — incompatíveis; o sync reconstrói)
 -- ============================================================
 TRUNCATE country_revenue;

@@ -117,3 +117,23 @@ describe("ecpm", () => {
     expect(ecpm(5, 0)).toBe(0);
   });
 });
+
+describe("sumEarnings / decimalValue (mediationReport)", () => {
+  it("soma linhas DATE-only e aceita decimalValue além de microsValue", async () => {
+    const { sumEarnings } = await import("@/lib/sync/parse");
+    const report = [
+      { header: {} },
+      { row: { dimensionValues: { DATE: { value: "20260825" } }, metricValues: { ESTIMATED_EARNINGS: { microsValue: "1500000" } } } },
+      { row: { dimensionValues: { DATE: { value: "20260826" } }, metricValues: { ESTIMATED_EARNINGS: { decimalValue: "2500000" } } } },
+      { footer: {} },
+    ];
+    expect(sumEarnings(report)).toBeCloseTo(4);
+  });
+
+  it("parseReport também lê decimalValue", () => {
+    const report = [
+      { row: { dimensionValues: { DATE: { value: "20260826" }, APP: { value: "x" } }, metricValues: { ESTIMATED_EARNINGS: { decimalValue: "750000" } } } },
+    ];
+    expect(parseReport(report, "APP")[0]!.revenue).toBeCloseTo(0.75);
+  });
+});
