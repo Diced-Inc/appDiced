@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 const navItems = [
   { href: "/", label: "Visão Geral", icon: "LayoutDashboard" },
   { href: "/apps", label: "Aplicativos", icon: "Smartphone" },
   { href: "/revenue", label: "Receita", icon: "DollarSign" },
+  { href: "/acquisition", label: "Aquisição", icon: "Megaphone" },
   { href: "/banco", label: "Banco", icon: "Landmark" },
   { href: "/settings", label: "Configurações", icon: "Settings" },
 ];
@@ -28,6 +29,11 @@ const icons: Record<string, React.ReactNode> = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   ),
+  Megaphone: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 1 1 0-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 0 1-1.44-4.282m3.102.068a24.71 24.71 0 0 1-.232-.265 18.654 18.654 0 0 1-.232-8.93 24.76 24.76 0 0 1 .232-.265m0 9.46a24.64 24.64 0 0 0 7.966 4.514c.388.14.826-.126.826-.538V3.833c0-.412-.438-.678-.826-.538a24.64 24.64 0 0 0-7.966 4.514m0 8.031A24.72 24.72 0 0 1 10.34 6.66m8.56 8.405c.94-.665 1.6-1.875 1.6-3.065 0-1.19-.66-2.4-1.6-3.065" />
+    </svg>
+  ),
   Landmark: (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
@@ -44,11 +50,6 @@ const icons: Record<string, React.ReactNode> = {
 export function Sidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-
-  // Close sidebar on route change (mobile)
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
 
   return (
     <>
@@ -107,6 +108,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setOpen(false)}
                 className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive
                     ? "bg-violet-500/10 text-violet-400"

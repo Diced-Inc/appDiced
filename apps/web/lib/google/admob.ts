@@ -4,7 +4,7 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const ADMOB_API_BASE = "https://admob.googleapis.com/v1";
 const SCOPE =
-  "https://www.googleapis.com/auth/admob.report https://www.googleapis.com/auth/admob.readonly";
+  "https://www.googleapis.com/auth/admob.report https://www.googleapis.com/auth/admob.readonly https://www.googleapis.com/auth/analytics.readonly";
 
 export function getAdMobAuthUrl(): string | null {
   const clientId = process.env.ADMOB_CLIENT_ID?.trim();
@@ -116,6 +116,9 @@ export async function getAdMobAccessToken(userId: string): Promise<string | null
     return null;
   }
 }
+
+/** O mesmo consentimento Google autoriza AdMob e GA4. */
+export const getGoogleReportingAccessToken = getAdMobAccessToken;
 
 /** "2026-08-15" → formato de data da AdMob API */
 function toAdMobDate(dateStr: string) {

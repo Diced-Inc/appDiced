@@ -3,6 +3,7 @@ import { syncAdMob, listConnectedAdMobUsers } from "@/lib/sync/admob";
 import { syncPlayStore } from "@/lib/sync/play";
 import { saveRevenueSnapshot } from "@/lib/sync/snapshot";
 import { runNotificationRules } from "@/lib/notifications/rules";
+import { listConnectedAcquisitionUsers, syncAcquisition } from "@/lib/sync/acquisition";
 
 export const maxDuration = 300;
 
@@ -20,26 +21,39 @@ export async function GET(req: NextRequest) {
   }
 
   const mode = req.nextUrl.searchParams.get("mode") === "daily" ? "daily" : "hourly";
-  const userIds = await listConnectedAdMobUsers();
+  const [adMobUsers, acquisitionUsers] = await Promise.all([
+    listConnectedAdMobUsers(),
+    listConnectedAcquisitionUsers(),
+  ]);
+  const userIds = Array.from(new Set([...adMobUsers, ...acquisitionUsers]));
   const results: Record<string, unknown> = { mode };
 
   for (const userId of userIds) {
     try {
-      const admob = await syncAdMob(userId, {
-        lookbackDays: mode === "daily" ? 90 : 7,
-      });
-      // Resultado completo (contagens + warnings): rota é protegida por CRON_SECRET
-      // e os warnings são a única visão de falhas parciais (país / ad unit)
-      results[`admob_${userId}`] = admob;
+      if (adMobUsers.includes(userId)) {
+        const admob = await syncAdMob(userId, {
+          lookbackDays: mode === "daily" ? 90 : 7,
+        });
+        // Resultado completo (contagens + warnings): rota é protegida por CRON_SECRET
+        // e os warnings são a única visão de falhas parciais (país / ad unit)
+        results[`admob_${userId}`] = admob;
+        await saveRevenueSnapshot(userId);
+      }
 
-      await saveRevenueSnapshot(userId);
+      if (acquisitionUsers.includes(userId)) {
+        results[`acquisition_${userId}`] = await syncAcquisition(userId, {
+          lookbackDays: mode === "daily" ? 90 : 14,
+        });
+      }
 
       if (mode === "daily") {
-        const play = await syncPlayStore(userId);
-        results[`play_${userId}`] = play.success ? "success" : `error: ${play.error}`;
+        if (adMobUsers.includes(userId)) {
+          const play = await syncPlayStore(userId);
+          results[`play_${userId}`] = play.success ? "success" : `error: ${play.error}`;
 
-        const sent = await runNotificationRules(userId, { statusChanges: play.statusChanges });
-        if (sent.length > 0) results[`notify_${userId}`] = sent;
+          const sent = await runNotificationRules(userId, { statusChanges: play.statusChanges });
+          if (sent.length > 0) results[`notify_${userId}`] = sent;
+        }
       }
     } catch (e) {
       results[`user_${userId}`] = `error: ${e instanceof Error ? e.message : String(e)}`;

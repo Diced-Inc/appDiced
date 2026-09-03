@@ -2,6 +2,8 @@
 
 Dashboard interno da Diced (`app.diced.com.br`): receita AdMob, status dos apps na Play Store, pipeline de lançamento e extrato de pagamentos.
 
+Também inclui o painel de aquisição paga: gasto da Meta versus receita atribuída no Firebase/GA4, com lucro, ROAS e CPI por campanha.
+
 ## Stack
 
 Next.js (App Router) · Clerk · Supabase · Recharts · Tailwind · Vercel
@@ -12,13 +14,14 @@ Next.js (App Router) · Clerk · Supabase · Recharts · Tailwind · Vercel
 - `country_revenue` e `ad_unit_revenue` seguem o mesmo modelo (série diária por usuário).
 - `monthly_earnings` materializa o extrato mensal (aberto → fechado → pago) a partir do razão; a página Banco modela o ciclo real do AdMob (mês N pago ~dia 21 de N+1, threshold $100).
 - Os campos `apps.revenue/impressions/ecpm` são legados — o código não lê nem escreve neles.
+- `marketing_integrations` vincula app, campanha Meta, fluxo Android do GA4 e UTMs. `marketing_daily_metrics` guarda o cruzamento diário em uma moeda única (a moeda da conta Meta).
 
 ## Coleta
 
 | Gatilho | Frequência | O que faz |
 |---|---|---|
-| cron-job.org → `GET /api/cron/sync` (`mode=hourly`) | de hora em hora | snapshot horário + AdMob lookback 7d |
-| Vercel cron → `GET /api/cron/sync?mode=daily` | 1x/dia 04h BRT | AdMob lookback 90d + Play Store + fechamento mensal + notificações |
+| cron-job.org → `GET /api/cron/sync` (`mode=hourly`) | de hora em hora | snapshot + AdMob 7d + Meta/GA4 14d |
+| Vercel cron → `GET /api/cron/sync?mode=daily` | 1x/dia 04h BRT | AdMob e Meta/GA4 90d + Play Store + fechamento mensal + notificações |
 | Load do dashboard | 1x por sessão | sync leve 7d (fallback) |
 
 Ambos exigem header `Authorization: Bearer $CRON_SECRET`.
@@ -35,6 +38,7 @@ Toda a lógica vive em `lib/sync/` (as rotas são cascas finas):
 - `play.ts` — scrape da Play (rating, downloads, removido/restaurado)
 - `monthly.ts` — fechamento mensal
 - `snapshot.ts` — snapshot horário ("Ontem nesse horário")
+- `acquisition.ts` — gasto da Meta + receita/instalações atribuídas pelo GA4
 - `../notifications/rules.ts` — regras de push (queda anômala, app removido, threshold, sync parado) com dedup em `notifications_sent`
 
 ## Desenvolvimento
@@ -46,6 +50,15 @@ pnpm check-types  # tsc
 pnpm build        # build de produção
 ```
 
-Migrations são arquivos `migration-*.sql` na raiz de `apps/web`, executadas manualmente no Supabase (a mais recente: `migration-history.sql`).
+Migrations novas ficam em `supabase/migrations/`. Para aquisição, aplique `20260903152304_acquisition_profitability.sql` no Supabase antes do deploy.
 
 Env: ver `.env.example`. `CRON_SECRET` protege os endpoints de cron.
+
+## Configuração da aquisição
+
+1. No Google Cloud do OAuth atual, habilite **Google Analytics Data API** e **Google Analytics Admin API**.
+2. No app da Meta, adicione como URI de redirecionamento OAuth: `https://app.diced.com.br/api/auth/meta/callback` (e a URL local equivalente no desenvolvimento).
+3. Configure `META_APP_ID`, `META_APP_SECRET` e mantenha `META_GRAPH_API_VERSION=v26.0`.
+4. Depois do deploy, abra Configurações, reconecte o Google para conceder `analytics.readonly`, conecte a Meta e vincule campanha + fluxo GA4 + UTMs.
+
+O relatório usa `firstUserSource`, `firstUserMedium` e `firstUserCampaignName`. Portanto, a UTM da configuração deve ser exatamente a mesma enviada no Play Install Referrer do anúncio.

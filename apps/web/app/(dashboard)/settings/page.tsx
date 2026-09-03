@@ -6,6 +6,12 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getAdMobAuthUrl } from "@/lib/google/admob";
 import { SyncButton } from "@/components/sync-button";
 import { NotificationSettings } from "@/components/notification-settings";
+import { AcquisitionSettings } from "@/components/acquisition-settings";
+import { getAppMeta } from "@/lib/data";
+import { getAcquisitionData } from "@/lib/acquisition";
+import { listGA4AndroidStreams } from "@/lib/google/analytics";
+import { isMetaConfigured, listMetaAdAccounts, listMetaCampaigns } from "@/lib/meta/ads";
+import { resolvePeriod } from "@/lib/period";
 
 export const dynamic = "force-dynamic";
 
@@ -33,8 +39,24 @@ export default async function SettingsPage() {
     (c) => c.provider === "google_play"
   );
   const admobConnection = connections?.find((c) => c.provider === "admob");
+  const metaConnection = connections?.find((c) => c.provider === "meta_ads");
 
   const admobAuthUrl = getAdMobAuthUrl();
+
+  const [apps, acquisition, accountsResult, streamsResult] = await Promise.all([
+    getAppMeta(userId),
+    getAcquisitionData(userId, resolvePeriod("month")),
+    metaConnection?.status === "connected"
+      ? listMetaAdAccounts(userId).catch(() => [])
+      : Promise.resolve([]),
+    admobConnection?.status === "connected"
+      ? listGA4AndroidStreams(userId).catch(() => [])
+      : Promise.resolve([]),
+  ]);
+  const campaignGroups = await Promise.all(
+    accountsResult.map((account) => listMetaCampaigns(userId, account.id).catch(() => []))
+  );
+  const metaCampaigns = campaignGroups.flat();
 
   const statusVariant = (status: string | undefined) => {
     switch (status) {
@@ -97,9 +119,9 @@ export default async function SettingsPage() {
         <Card>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-base font-semibold font-heading md:text-lg">AdMob API</h2>
+              <h2 className="text-base font-semibold font-heading md:text-lg">Google AdMob + Analytics</h2>
               <p className="mt-1 text-xs text-zinc-400 md:text-sm">
-                Autenticação OAuth 2.0. Fornece receita, impressões e eCPM.
+                OAuth 2.0 para receita do AdMob e atribuição de campanhas no GA4/Firebase.
               </p>
               {admobConnection?.error_message && (
                 <p className="mt-1 text-xs text-red-400">
@@ -137,6 +159,20 @@ export default async function SettingsPage() {
               )}
             </div>
           </div>
+        </Card>
+
+        <Card>
+          <AcquisitionSettings
+            apps={apps.map((app) => ({ id: app.id, name: app.name, packageName: app.packageName }))}
+            accounts={accountsResult}
+            campaigns={metaCampaigns}
+            streams={streamsResult}
+            integrations={acquisition.integrations}
+            metaConnected={metaConnection?.status === "connected" && accountsResult.length > 0}
+            googleConnected={admobConnection?.status === "connected"}
+            metaConfigured={isMetaConfigured()}
+            googleAuthUrl={admobAuthUrl}
+          />
         </Card>
 
         {/* Push Notifications */}
