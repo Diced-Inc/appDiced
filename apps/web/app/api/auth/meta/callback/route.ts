@@ -20,6 +20,16 @@ export async function GET(req: NextRequest) {
   const denied = req.nextUrl.searchParams.get("error");
 
   if (denied || !code || !state || !expectedState || !sameState(expectedState, state)) {
+    const reason = denied
+      ? "denied"
+      : !code
+        ? "missing_code"
+        : !state
+          ? "missing_state"
+          : !expectedState
+            ? "missing_state_cookie"
+            : "state_mismatch";
+    console.error("Meta OAuth validation failed:", reason);
     return NextResponse.redirect(new URL("/settings?meta=error", req.url));
   }
 

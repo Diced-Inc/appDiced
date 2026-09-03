@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     maxAge: 10 * 60,
-    path: "/api/auth/meta/callback",
+    path: "/",
   });
   return response;
 }
