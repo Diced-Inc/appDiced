@@ -44,6 +44,16 @@ function compactCurrency(value: number, code: string): string {
   }).format(value);
 }
 
+function shortDateTime(value: string): string {
+  return new Date(value).toLocaleString("pt-BR", {
+    timeZone: "America/Fortaleza",
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 const icons = {
   spend: (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" /></svg>
@@ -121,18 +131,20 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <div className="flex flex-wrap items-center gap-2">
-        {currencies.size <= 1 && (
-          <button type="button" onClick={() => setSelectedAppId("all")} className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 ${selectedAppId === "all" ? "bg-violet-500/10 text-violet-400" : "text-zinc-400 hover:text-white"}`}>Todos os apps</button>
-        )}
-        {integrations.map((integration) => (
-          <button key={integration.id} type="button" onClick={() => setSelectedAppId(integration.appId)} className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 ${selectedAppId === integration.appId ? "bg-violet-500/10 text-violet-400" : "text-zinc-400 hover:text-white"}`}>{integration.appName}</button>
-        ))}
-        <div className="ml-auto flex items-center gap-2">
+      <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          {currencies.size <= 1 && (
+            <button type="button" onClick={() => setSelectedAppId("all")} className={`min-h-9 w-full cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 sm:w-auto ${selectedAppId === "all" ? "bg-violet-500/10 text-violet-400" : "text-zinc-400 hover:text-white"}`}>Todos os apps</button>
+          )}
+          {integrations.map((integration) => (
+            <button key={integration.id} type="button" onClick={() => setSelectedAppId(integration.appId)} className={`min-h-9 w-full cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 sm:w-auto ${selectedAppId === integration.appId ? "bg-violet-500/10 text-violet-400" : "text-zinc-400 hover:text-white"}`}>{integration.appName}</button>
+          ))}
+        </div>
+        <div className="flex items-center justify-end gap-2 sm:ml-auto">
           <span className={`h-2 w-2 rounded-full ${selectedIntegrations.some((item) => item.errorMessage) ? "bg-red-400" : "bg-emerald-400"}`} aria-hidden="true" />
           <span className="text-xs text-zinc-500">
             {selectedIntegrations[0]?.lastSync
-              ? `Atualizado ${new Date(selectedIntegrations[0].lastSync!).toLocaleString("pt-BR", { timeZone: "America/Fortaleza" })}`
+              ? `Atualizado ${shortDateTime(selectedIntegrations[0].lastSync)}`
               : "Aguardando primeira sincronização"}
           </span>
         </div>
@@ -144,37 +156,40 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
-        <KpiCard title={`Investimento (${periodLabel})`} value={currency(summary.spend, currencyCode)} subtitle={`${summary.impressions.toLocaleString("pt-BR")} impressões • ${summary.clicks.toLocaleString("pt-BR")} cliques`} icon={icons.spend} />
+      <div className="grid grid-cols-2 items-stretch gap-2 sm:gap-3 md:gap-4 lg:grid-cols-4">
+        <KpiCard title={`Investimento · ${periodLabel}`} value={currency(summary.spend, currencyCode)} subtitle={`${summary.impressions.toLocaleString("pt-BR")} impressões • ${summary.clicks.toLocaleString("pt-BR")} cliques`} icon={icons.spend} />
         <KpiCard title="Receita Facebook (GA4)" value={currency(summary.revenue, currencyCode)} subtitle={`${currency(summary.utmRevenue, currencyCode)} com UTM exata`} icon={icons.revenue} />
         <KpiCard title="Lucro Facebook (GA4)" value={currency(summary.profit, currencyCode)} change={summary.spend > 0 ? `ROAS amplo ${roasLabel} • UTM ${utmRoasLabel}` : "Sem gasto no período"} changeType={profitable ? "positive" : "negative"} icon={icons.profit} />
-        <KpiCard title="Facebook confirmado no GA4" value={summary.ga4Installs.toLocaleString("pt-BR")} subtitle={summary.costPerInstall === null ? "CPI ainda indisponível" : `CPI ${currency(summary.costPerInstall, currencyCode)}`} icon={icons.installs} />
+        <KpiCard title="Facebook no GA4" value={summary.ga4Installs.toLocaleString("pt-BR")} subtitle={summary.costPerInstall === null ? "Primeiras aberturas" : `Primeiras aberturas • CPI ${currency(summary.costPerInstall, currencyCode)}`} icon={icons.installs} />
       </div>
 
-      <Card>
-        <div className="mb-4">
+      <Card className="overflow-hidden">
+        <div className="mb-3 md:mb-4">
           <h2 className="text-base font-semibold font-heading md:text-lg">Conciliação de instalações</h2>
-          <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-            Cada plataforma responde a uma pergunta diferente. A Meta atribui o resultado ao anúncio; o GA4 confirma a primeira abertura e separa o que chegou com ou sem a UTM completa.
+          <p className="mt-1 text-xs leading-relaxed text-zinc-400">
+            Compare atribuição, primeira abertura e rastreamento exato.
           </p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Meta atribuídas</p>
-            <p className="mt-2 text-2xl font-semibold text-white">{summary.metaInstalls.toLocaleString("pt-BR")}</p>
-            <p className="mt-1 text-xs text-zinc-500">{summary.metaCostPerInstall === null ? "CPI indisponível" : `CPI ${currency(summary.metaCostPerInstall, currencyCode)}`}</p>
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="min-w-0 rounded-xl border border-white/5 bg-white/[0.02] p-3 sm:p-4">
+            <p className="text-[10px] font-medium uppercase leading-4 tracking-wide text-zinc-500 sm:text-xs">Meta</p>
+            <p className="mt-1 whitespace-nowrap text-xl font-semibold text-white tabular-nums sm:mt-2 sm:text-2xl">{summary.metaInstalls.toLocaleString("pt-BR")}</p>
+            <p className="mt-1 text-[10px] leading-4 text-zinc-500 sm:text-xs">{summary.metaCostPerInstall === null ? "CPI —" : `CPI ${currency(summary.metaCostPerInstall, currencyCode)}`}</p>
           </div>
-          <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.04] p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-emerald-300/70">Facebook no GA4</p>
-            <p className="mt-2 text-2xl font-semibold text-white">{summary.ga4Installs.toLocaleString("pt-BR")}</p>
-            <p className="mt-1 text-xs text-zinc-500">UTM exata + apps.facebook.com / fb4a</p>
+          <div className="min-w-0 rounded-xl border border-emerald-500/15 bg-emerald-500/[0.04] p-3 sm:p-4">
+            <p className="text-[10px] font-medium uppercase leading-4 tracking-wide text-emerald-300/70 sm:text-xs">GA4 Facebook</p>
+            <p className="mt-1 whitespace-nowrap text-xl font-semibold text-white tabular-nums sm:mt-2 sm:text-2xl">{summary.ga4Installs.toLocaleString("pt-BR")}</p>
+            <p className="mt-1 text-[10px] leading-4 text-zinc-500 sm:text-xs">{summary.costPerInstall === null ? "CPI —" : `CPI ${currency(summary.costPerInstall, currencyCode)}`}</p>
           </div>
-          <div className="rounded-xl border border-violet-500/15 bg-violet-500/[0.04] p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-violet-300/70">UTM exata</p>
-            <p className="mt-2 text-2xl font-semibold text-white">{summary.utmInstalls.toLocaleString("pt-BR")}</p>
-            <p className="mt-1 text-xs text-zinc-500">{summary.utmCostPerInstall === null ? "CPI indisponível" : `CPI ${currency(summary.utmCostPerInstall, currencyCode)}`}</p>
+          <div className="min-w-0 rounded-xl border border-violet-500/15 bg-violet-500/[0.04] p-3 sm:p-4">
+            <p className="text-[10px] font-medium uppercase leading-4 tracking-wide text-violet-300/70 sm:text-xs">UTM exata</p>
+            <p className="mt-1 whitespace-nowrap text-xl font-semibold text-white tabular-nums sm:mt-2 sm:text-2xl">{summary.utmInstalls.toLocaleString("pt-BR")}</p>
+            <p className="mt-1 text-[10px] leading-4 text-zinc-500 sm:text-xs">{summary.utmCostPerInstall === null ? "CPI —" : `CPI ${currency(summary.utmCostPerInstall, currencyCode)}`}</p>
           </div>
         </div>
+        <p className="mt-3 border-t border-white/5 pt-3 text-[11px] leading-4 text-zinc-500 md:text-xs">
+          {summary.utmInstalls.toLocaleString("pt-BR")} com UTM completa + {summary.facebookReferralInstalls.toLocaleString("pt-BR")} identificadas pelo fallback nativo do Facebook (fb4a).
+        </p>
       </Card>
 
       <Card>
@@ -187,7 +202,7 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
             {profitable ? "Operação positiva" : "Abaixo do break-even"}
           </span>
         </div>
-        <div className="h-[260px] w-full md:h-[340px]">
+        <div className="h-[240px] min-w-0 w-full sm:h-[260px] md:h-[340px]">
           <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 800, height: 340 }}>
             <ComposedChart data={chartData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
@@ -215,7 +230,31 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
           </div>
           <a href="/settings" className="cursor-pointer text-xs font-medium text-violet-400 transition-colors hover:text-violet-300">Configurar</a>
         </div>
-        <div className="overflow-x-auto">
+        <div className="grid gap-3 lg:hidden">
+          {campaignRows.map(({ integration, summary: row }) => (
+            <div key={integration.id} className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
+              <div className="min-w-0 border-b border-white/5 pb-3">
+                <p className="truncate text-sm font-medium text-white">{integration.metaCampaignName}</p>
+                <p className="mt-0.5 truncate text-[11px] text-zinc-500">{integration.appName} • {integration.utmCampaign}</p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 py-3">
+                <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">Gasto</p><p className="mt-1 whitespace-nowrap text-sm font-medium text-zinc-200 tabular-nums">{currency(row.spend, integration.currency)}</p></div>
+                <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">Receita</p><p className="mt-1 whitespace-nowrap text-sm font-medium text-zinc-200 tabular-nums">{currency(row.revenue, integration.currency)}</p></div>
+                <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">Lucro</p><p className={`mt-1 whitespace-nowrap text-sm font-medium tabular-nums ${row.profit >= 0 ? "text-emerald-400" : "text-red-400"}`}>{currency(row.profit, integration.currency)}</p></div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 border-y border-white/5 py-3">
+                <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">ROAS GA4</p><p className="mt-1 text-sm font-medium text-zinc-200 tabular-nums">{row.roas === null ? "—" : `${row.roas.toFixed(2)}x`}</p></div>
+                <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">CPI GA4</p><p className="mt-1 text-sm font-medium text-zinc-200 tabular-nums">{row.costPerInstall === null ? "—" : currency(row.costPerInstall, integration.currency)}</p></div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 pt-3 text-center">
+                <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">Meta</p><p className="mt-1 text-sm font-semibold text-white tabular-nums">{row.metaInstalls.toLocaleString("pt-BR")}</p></div>
+                <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">GA4</p><p className="mt-1 text-sm font-semibold text-white tabular-nums">{row.ga4Installs.toLocaleString("pt-BR")}</p></div>
+                <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">UTM</p><p className="mt-1 text-sm font-semibold text-white tabular-nums">{row.utmInstalls.toLocaleString("pt-BR")}</p></div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto lg:block">
           <table className="w-full min-w-[1120px] text-left text-sm">
             <thead className="border-b border-white/5 text-xs uppercase tracking-wide text-zinc-500">
               <tr><th className="pb-3 font-medium">Campanha</th><th className="pb-3 text-right font-medium">Gasto</th><th className="pb-3 text-right font-medium">Receita GA4</th><th className="pb-3 text-right font-medium">Receita UTM</th><th className="pb-3 text-right font-medium">Lucro GA4</th><th className="pb-3 text-right font-medium">ROAS GA4</th><th className="pb-3 text-right font-medium">Meta</th><th className="pb-3 text-right font-medium">GA4 Facebook</th><th className="pb-3 text-right font-medium">UTM exata</th><th className="pb-3 text-right font-medium">CPI GA4</th></tr>

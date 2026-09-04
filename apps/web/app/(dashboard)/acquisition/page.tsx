@@ -20,8 +20,10 @@ export default async function AcquisitionPage({ searchParams }: { searchParams: 
     <div>
       <Header title="Aquisição" />
       <div className="space-y-4 p-4 md:space-y-6 md:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <PeriodSelector />
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <PeriodSelector />
+          </div>
           <SyncButton provider="acquisition" />
         </div>
         <AcquisitionDashboard

@@ -21,12 +21,13 @@ export function PeriodSelector() {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1">
+    <div aria-label="Selecionar período" className="flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {PERIOD_KEYS.map((key) => (
         <button
+          type="button"
           key={key}
           onClick={() => select(key)}
-          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+          className={`min-h-9 shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 ${
             current === key
               ? "bg-violet-500/10 text-violet-400"
               : "text-zinc-400 hover:text-white"
