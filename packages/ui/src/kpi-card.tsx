@@ -34,7 +34,7 @@ export function KpiCard({
             {icon}
           </div>
         </div>
-        <p className="mt-3 whitespace-nowrap text-[clamp(1.3rem,6.4vw,1.75rem)] font-bold leading-none tracking-tight text-white font-heading tabular-nums md:mt-4 md:text-3xl">
+        <p className="mt-3 whitespace-nowrap text-[clamp(1.125rem,5.8vw,1.75rem)] font-bold leading-none tracking-tight text-white font-heading tabular-nums md:mt-4 md:text-3xl">
           {value}
         </p>
         {subtitle && (
