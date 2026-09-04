@@ -2,50 +2,63 @@
 
 import { useEffect, useState } from "react";
 
-export function PushNotifications() {
-  const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
+async function saveSubscription(sub: PushSubscription) {
+  await fetch("/api/push/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ subscription: sub.toJSON() }),
+  });
+}
 
-  useEffect(() => {
-    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
-      setPermission("unsupported");
+async function registerAndSubscribe() {
+  try {
+    const registration = await navigator.serviceWorker.register("/sw.js");
+    await navigator.serviceWorker.ready;
+
+    const existing = await registration.pushManager.getSubscription();
+    if (existing) {
+      await saveSubscription(existing);
       return;
     }
-    setPermission(Notification.permission);
 
-    if (Notification.permission === "granted") {
-      registerAndSubscribe();
-    }
-  }, []);
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    });
 
-  async function registerAndSubscribe() {
-    try {
-      const registration = await navigator.serviceWorker.register("/sw.js");
-      await navigator.serviceWorker.ready;
+    await saveSubscription(subscription);
+  } catch (err) {
+    console.error("[Push] Registration failed:", err);
+  }
+}
 
-      const existing = await registration.pushManager.getSubscription();
-      if (existing) {
-        await saveSubscription(existing);
+export function PushNotifications() {
+  const [permission, setPermission] = useState<NotificationPermission | "unsupported" | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function initialize() {
+      await Promise.resolve();
+      if (cancelled) return;
+
+      if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+        setPermission("unsupported");
         return;
       }
 
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-      });
-
-      await saveSubscription(subscription);
-    } catch (err) {
-      console.error("[Push] Registration failed:", err);
+      setPermission(Notification.permission);
+      if (Notification.permission === "granted") {
+        await registerAndSubscribe();
+      }
     }
-  }
 
-  async function saveSubscription(sub: PushSubscription) {
-    await fetch("/api/push/subscribe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subscription: sub.toJSON() }),
-    });
-  }
+    void initialize();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function requestPermission() {
     const result = await Notification.requestPermission();
@@ -55,7 +68,7 @@ export function PushNotifications() {
     }
   }
 
-  if (permission === "unsupported" || permission === "granted") {
+  if (permission === null || permission === "unsupported" || permission === "granted") {
     return null;
   }
 
@@ -65,8 +78,11 @@ export function PushNotifications() {
 
   return (
     <button
+      type="button"
       onClick={requestPermission}
-      className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-violet-500 px-4 py-2 text-sm font-medium text-white shadow-lg transition-colors hover:bg-violet-600"
+      aria-label="Ativar notificações"
+      title="Ativar notificações"
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-50 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-violet-500 text-sm font-medium text-white shadow-lg shadow-black/30 transition-colors hover:bg-violet-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300 sm:h-auto sm:w-auto sm:gap-2 sm:rounded-lg sm:px-4 sm:py-2"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -78,11 +94,12 @@ export function PushNotifications() {
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
+        aria-hidden="true"
       >
         <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
         <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
       </svg>
-      Ativar Notificações
+      <span className="hidden sm:inline">Ativar Notificações</span>
     </button>
   );
 }
