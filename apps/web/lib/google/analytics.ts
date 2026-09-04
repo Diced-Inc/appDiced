@@ -128,19 +128,29 @@ export function parseGA4AcquisitionReport(report: GA4ReportResponse): GA4DailyAc
   const dateIndex = dimensions.indexOf("date");
   if (dateIndex < 0) return [];
 
-  return (report.rows ?? []).flatMap((row) => {
+  const byDate = new Map<string, GA4DailyAcquisition>();
+  for (const row of report.rows ?? []) {
     const date = ga4Date(row.dimensionValues?.[dateIndex]?.value);
-    if (!date) return [];
+    if (!date) continue;
     const value = (name: string) => numeric(row.metricValues?.[metrics.indexOf(name)]?.value);
-    return [{
+    const previous = byDate.get(date) ?? {
       date,
-      installs: Math.round(value("newUsers")),
-      adRevenue: value("totalAdRevenue"),
-      purchaseRevenue: value("purchaseRevenue"),
-      totalRevenue: value("totalRevenue"),
-      adImpressions: Math.round(value("publisherAdImpressions")),
-    }];
-  });
+      installs: 0,
+      adRevenue: 0,
+      purchaseRevenue: 0,
+      totalRevenue: 0,
+      adImpressions: 0,
+    };
+    byDate.set(date, {
+      date,
+      installs: previous.installs + Math.round(value("newUsers")),
+      adRevenue: previous.adRevenue + value("totalAdRevenue"),
+      purchaseRevenue: previous.purchaseRevenue + value("purchaseRevenue"),
+      totalRevenue: previous.totalRevenue + value("totalRevenue"),
+      adImpressions: previous.adImpressions + Math.round(value("publisherAdImpressions")),
+    });
+  }
+  return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function parseCustomAdPaidReport(report: GA4ReportResponse): CustomAdPaidRow[] {

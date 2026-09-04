@@ -122,6 +122,41 @@ describe("parseGA4AcquisitionReport", () => {
     });
     expect(rows).toEqual([{ date: "2026-09-01", installs: 4, adRevenue: 6.5, purchaseRevenue: 2.25, totalRevenue: 8.75, adImpressions: 900 }]);
   });
+
+  it("soma linhas do mesmo dia quando o GA4 separa medium vazio e (not set)", () => {
+    const rows = parseGA4AcquisitionReport({
+      dimensionHeaders: [
+        { name: "date" },
+        { name: "firstUserMedium" },
+      ],
+      metricHeaders: [
+        { name: "newUsers" },
+        { name: "totalAdRevenue" },
+        { name: "purchaseRevenue" },
+        { name: "totalRevenue" },
+        { name: "publisherAdImpressions" },
+      ],
+      rows: [
+        {
+          dimensionValues: [{ value: "20260903" }, { value: "(not set)" }],
+          metricValues: [{ value: "36" }, { value: "4.51" }, { value: "0" }, { value: "4.51" }, { value: "90" }],
+        },
+        {
+          dimensionValues: [{ value: "20260903" }, { value: "" }],
+          metricValues: [{ value: "0" }, { value: "0.03" }, { value: "0" }, { value: "0.03" }, { value: "1" }],
+        },
+      ],
+    });
+
+    expect(rows).toEqual([{
+      date: "2026-09-03",
+      installs: 36,
+      adRevenue: 4.54,
+      purchaseRevenue: 0,
+      totalRevenue: 4.54,
+      adImpressions: 91,
+    }]);
+  });
 });
 
 describe("parseMetaInstallActions", () => {
