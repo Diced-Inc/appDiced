@@ -157,28 +157,60 @@ function parseCustomAdPaidReport(report: GA4ReportResponse): CustomAdPaidRow[] {
   });
 }
 
-export async function fetchGA4AcquisitionReport(
-  userId: string,
-  config: {
-    propertyId: string;
-    streamId: string;
-    source: string;
-    medium: string;
-    campaign: string;
-    currency: string;
-  },
+interface GA4AcquisitionBaseConfig {
+  propertyId: string;
+  streamId: string;
+  currency: string;
+}
+
+interface GA4AcquisitionConfig extends GA4AcquisitionBaseConfig {
+  source: string;
+  medium: string;
+  campaign: string;
+}
+
+export interface GA4AcquisitionBreakdown {
+  utm: GA4DailyAcquisition[];
+  facebookReferral: GA4DailyAcquisition[];
+}
+
+type GA4FilterExpression = Record<string, unknown>;
+
+function exactFilter(fieldName: string, value: string): GA4FilterExpression {
+  return {
+    filter: {
+      fieldName,
+      stringFilter: { matchType: "EXACT", value, caseSensitive: false },
+    },
+  };
+}
+
+export function buildUtmAcquisitionFilters(
+  config: Pick<GA4AcquisitionConfig, "streamId" | "source" | "medium" | "campaign">
+): GA4FilterExpression[] {
+  return [
+    exactFilter("streamId", config.streamId),
+    exactFilter("firstUserSource", config.source),
+    exactFilter("firstUserMedium", config.medium),
+    exactFilter("firstUserCampaignName", config.campaign),
+  ];
+}
+
+export function buildFacebookReferralFilters(streamId: string): GA4FilterExpression[] {
+  return [
+    exactFilter("streamId", streamId),
+    exactFilter("firstUserSource", "apps.facebook.com"),
+    exactFilter("firstUserCampaignName", "fb4a"),
+  ];
+}
+
+async function fetchGA4AcquisitionForFilters(
+  token: string,
+  config: GA4AcquisitionBaseConfig,
+  acquisitionFilters: GA4FilterExpression[],
   range: { from: string; to: string }
 ): Promise<GA4DailyAcquisition[]> {
-  const token = await getGoogleReportingAccessToken(userId);
-  if (!token) throw new Error("Conexão Google/AdMob ausente; reconecte em Configurações");
-
   const endpoint = `${DATA_API}/properties/${encodeURIComponent(config.propertyId)}:runReport`;
-  const acquisitionFilters = [
-    { filter: { fieldName: "streamId", stringFilter: { matchType: "EXACT", value: config.streamId } } },
-    { filter: { fieldName: "firstUserSource", stringFilter: { matchType: "EXACT", value: config.source, caseSensitive: false } } },
-    { filter: { fieldName: "firstUserMedium", stringFilter: { matchType: "EXACT", value: config.medium, caseSensitive: false } } },
-    { filter: { fieldName: "firstUserCampaignName", stringFilter: { matchType: "EXACT", value: config.campaign, caseSensitive: false } } },
-  ];
 
   async function runReport(body: Record<string, unknown>): Promise<GA4ReportResponse> {
     const response = await fetch(endpoint, {
@@ -198,28 +230,24 @@ export async function fetchGA4AcquisitionReport(
   }
 
   const standardReport = await runReport({
-        dateRanges: [{ startDate: range.from, endDate: range.to }],
-        dimensions: [
-          { name: "date" },
-          { name: "streamId" },
-          { name: "firstUserSource" },
-          { name: "firstUserMedium" },
-          { name: "firstUserCampaignName" },
-        ],
-        metrics: [
-          { name: "newUsers" },
-          { name: "totalAdRevenue" },
-          { name: "purchaseRevenue" },
-          { name: "totalRevenue" },
-          { name: "publisherAdImpressions" },
-        ],
-        dimensionFilter: {
-          andGroup: {
-            expressions: acquisitionFilters,
-          },
-        },
-        currencyCode: config.currency,
-        limit: "100000",
+    dateRanges: [{ startDate: range.from, endDate: range.to }],
+    dimensions: [
+      { name: "date" },
+      { name: "streamId" },
+      { name: "firstUserSource" },
+      { name: "firstUserMedium" },
+      { name: "firstUserCampaignName" },
+    ],
+    metrics: [
+      { name: "newUsers" },
+      { name: "totalAdRevenue" },
+      { name: "purchaseRevenue" },
+      { name: "totalRevenue" },
+      { name: "publisherAdImpressions" },
+    ],
+    dimensionFilter: { andGroup: { expressions: acquisitionFilters } },
+    currencyCode: config.currency,
+    limit: "100000",
   });
   const standardRows = parseGA4AcquisitionReport(standardReport);
 
@@ -243,7 +271,7 @@ export async function fetchGA4AcquisitionReport(
         andGroup: {
           expressions: [
             ...acquisitionFilters,
-            { filter: { fieldName: "eventName", stringFilter: { matchType: "EXACT", value: "ad_paid" } } },
+            exactFilter("eventName", "ad_paid"),
           ],
         },
       },
@@ -274,4 +302,29 @@ export async function fetchGA4AcquisitionReport(
     });
   }
   return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export async function fetchGA4AcquisitionReport(
+  userId: string,
+  config: GA4AcquisitionConfig,
+  range: { from: string; to: string }
+): Promise<GA4DailyAcquisition[]> {
+  const token = await getGoogleReportingAccessToken(userId);
+  if (!token) throw new Error("Conexão Google/AdMob ausente; reconecte em Configurações");
+  return fetchGA4AcquisitionForFilters(token, config, buildUtmAcquisitionFilters(config), range);
+}
+
+export async function fetchGA4AcquisitionBreakdown(
+  userId: string,
+  config: GA4AcquisitionConfig,
+  range: { from: string; to: string }
+): Promise<GA4AcquisitionBreakdown> {
+  const token = await getGoogleReportingAccessToken(userId);
+  if (!token) throw new Error("Conexão Google/AdMob ausente; reconecte em Configurações");
+
+  const [utm, facebookReferral] = await Promise.all([
+    fetchGA4AcquisitionForFilters(token, config, buildUtmAcquisitionFilters(config), range),
+    fetchGA4AcquisitionForFilters(token, config, buildFacebookReferralFilters(config.streamId), range),
+  ]);
+  return { utm, facebookReferral };
 }

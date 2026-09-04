@@ -116,6 +116,7 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
   }
 
   const roasLabel = summary.roas === null ? "—" : `${summary.roas.toFixed(2)}x`;
+  const utmRoasLabel = summary.utmRoas === null ? "—" : `${summary.utmRoas.toFixed(2)}x`;
   const profitable = summary.profit >= 0;
 
   return (
@@ -143,16 +144,42 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
 
       <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
         <KpiCard title={`Investimento (${periodLabel})`} value={currency(summary.spend, currencyCode)} subtitle={`${summary.impressions.toLocaleString("pt-BR")} impressões • ${summary.clicks.toLocaleString("pt-BR")} cliques`} icon={icons.spend} />
-        <KpiCard title="Receita atribuída" value={currency(summary.revenue, currencyCode)} subtitle={`${currency(summary.adRevenue, currencyCode)} de anúncios`} icon={icons.revenue} />
-        <KpiCard title="Lucro atribuído" value={currency(summary.profit, currencyCode)} change={summary.spend > 0 ? `ROAS ${roasLabel}` : "Sem gasto no período"} changeType={profitable ? "positive" : "negative"} icon={icons.profit} />
-        <KpiCard title="Instalações confirmadas" value={summary.ga4Installs.toLocaleString("pt-BR")} subtitle={summary.costPerInstall === null ? "CPI ainda indisponível" : `CPI ${currency(summary.costPerInstall, currencyCode)}`} icon={icons.installs} />
+        <KpiCard title="Receita Facebook (GA4)" value={currency(summary.revenue, currencyCode)} subtitle={`${currency(summary.utmRevenue, currencyCode)} com UTM exata`} icon={icons.revenue} />
+        <KpiCard title="Lucro Facebook (GA4)" value={currency(summary.profit, currencyCode)} change={summary.spend > 0 ? `ROAS amplo ${roasLabel} • UTM ${utmRoasLabel}` : "Sem gasto no período"} changeType={profitable ? "positive" : "negative"} icon={icons.profit} />
+        <KpiCard title="Facebook confirmado no GA4" value={summary.ga4Installs.toLocaleString("pt-BR")} subtitle={summary.costPerInstall === null ? "CPI ainda indisponível" : `CPI ${currency(summary.costPerInstall, currencyCode)}`} icon={icons.installs} />
       </div>
+
+      <Card>
+        <div className="mb-4">
+          <h2 className="text-base font-semibold font-heading md:text-lg">Conciliação de instalações</h2>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+            Cada plataforma responde a uma pergunta diferente. A Meta atribui o resultado ao anúncio; o GA4 confirma a primeira abertura e separa o que chegou com ou sem a UTM completa.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Meta atribuídas</p>
+            <p className="mt-2 text-2xl font-semibold text-white">{summary.metaInstalls.toLocaleString("pt-BR")}</p>
+            <p className="mt-1 text-xs text-zinc-500">{summary.metaCostPerInstall === null ? "CPI indisponível" : `CPI ${currency(summary.metaCostPerInstall, currencyCode)}`}</p>
+          </div>
+          <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.04] p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-emerald-300/70">Facebook no GA4</p>
+            <p className="mt-2 text-2xl font-semibold text-white">{summary.ga4Installs.toLocaleString("pt-BR")}</p>
+            <p className="mt-1 text-xs text-zinc-500">UTM exata + apps.facebook.com / fb4a</p>
+          </div>
+          <div className="rounded-xl border border-violet-500/15 bg-violet-500/[0.04] p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-violet-300/70">UTM exata</p>
+            <p className="mt-2 text-2xl font-semibold text-white">{summary.utmInstalls.toLocaleString("pt-BR")}</p>
+            <p className="mt-1 text-xs text-zinc-500">{summary.utmCostPerInstall === null ? "CPI indisponível" : `CPI ${currency(summary.utmCostPerInstall, currencyCode)}`}</p>
+          </div>
+        </div>
+      </Card>
 
       <Card>
         <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-base font-semibold font-heading md:text-lg">Gasto x receita atribuída</h2>
-            <p className="mt-1 text-xs text-zinc-500">Receita gerada em cada dia por usuários cuja primeira origem foi esta campanha.</p>
+            <p className="mt-1 text-xs text-zinc-500">Receita da UTM exata somada ao fallback identificado pelo GA4 como apps.facebook.com / fb4a.</p>
           </div>
           <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-medium ${profitable ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
             {profitable ? "Operação positiva" : "Abaixo do break-even"}
@@ -182,14 +209,14 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold font-heading md:text-lg">Resultado por campanha</h2>
-            <p className="mt-1 text-xs text-zinc-500">Instalações do GA4 representam pessoas que realmente abriram o app.</p>
+            <p className="mt-1 text-xs text-zinc-500">Meta, GA4 e UTM são exibidos separadamente para evitar um CPI enganoso.</p>
           </div>
           <a href="/settings" className="cursor-pointer text-xs font-medium text-violet-400 transition-colors hover:text-violet-300">Configurar</a>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-sm">
+          <table className="w-full min-w-[1120px] text-left text-sm">
             <thead className="border-b border-white/5 text-xs uppercase tracking-wide text-zinc-500">
-              <tr><th className="pb-3 font-medium">Campanha</th><th className="pb-3 text-right font-medium">Gasto</th><th className="pb-3 text-right font-medium">Receita</th><th className="pb-3 text-right font-medium">Lucro</th><th className="pb-3 text-right font-medium">ROAS</th><th className="pb-3 text-right font-medium">Instalações</th><th className="pb-3 text-right font-medium">CPI</th></tr>
+              <tr><th className="pb-3 font-medium">Campanha</th><th className="pb-3 text-right font-medium">Gasto</th><th className="pb-3 text-right font-medium">Receita GA4</th><th className="pb-3 text-right font-medium">Receita UTM</th><th className="pb-3 text-right font-medium">Lucro GA4</th><th className="pb-3 text-right font-medium">ROAS GA4</th><th className="pb-3 text-right font-medium">Meta</th><th className="pb-3 text-right font-medium">GA4 Facebook</th><th className="pb-3 text-right font-medium">UTM exata</th><th className="pb-3 text-right font-medium">CPI GA4</th></tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {campaignRows.map(({ integration, summary: row }) => (
@@ -197,9 +224,12 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
                   <td className="py-3 pr-4"><p className="font-medium text-white">{integration.metaCampaignName}</p><p className="mt-0.5 text-xs text-zinc-500">{integration.appName} • {integration.utmCampaign}</p></td>
                   <td className="py-3 text-right text-zinc-300">{currency(row.spend, integration.currency)}</td>
                   <td className="py-3 text-right text-zinc-300">{currency(row.revenue, integration.currency)}</td>
+                  <td className="py-3 text-right text-zinc-300">{currency(row.utmRevenue, integration.currency)}</td>
                   <td className={`py-3 text-right font-medium ${row.profit >= 0 ? "text-emerald-400" : "text-red-400"}`}>{currency(row.profit, integration.currency)}</td>
                   <td className="py-3 text-right text-zinc-300">{row.roas === null ? "—" : `${row.roas.toFixed(2)}x`}</td>
+                  <td className="py-3 text-right text-zinc-300">{row.metaInstalls.toLocaleString("pt-BR")}</td>
                   <td className="py-3 text-right text-zinc-300">{row.ga4Installs.toLocaleString("pt-BR")}</td>
+                  <td className="py-3 text-right text-zinc-300">{row.utmInstalls.toLocaleString("pt-BR")}</td>
                   <td className="py-3 text-right text-zinc-300">{row.costPerInstall === null ? "—" : currency(row.costPerInstall, integration.currency)}</td>
                 </tr>
               ))}
@@ -209,7 +239,7 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
       </Card>
 
       <p className="text-xs leading-relaxed text-zinc-500">
-        Atribuição usada: primeira origem do usuário = UTM configurada. A receita pode crescer nos dias seguintes ao download; o painel revisa os últimos 14 dias a cada coleta e 90 dias diariamente.
+        Receita GA4 = UTM configurada + fallback apps.facebook.com / fb4a. A receita UTM permanece disponível como cenário conservador. O painel revisa os últimos 14 dias a cada coleta e 90 dias diariamente.
       </p>
     </div>
   );

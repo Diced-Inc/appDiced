@@ -33,11 +33,19 @@ export interface AcquisitionDailyMetric {
   adRevenue: number;
   purchaseRevenue: number;
   totalRevenue: number;
+  utmAdRevenue: number;
+  utmPurchaseRevenue: number;
+  utmTotalRevenue: number;
+  facebookReferralAdRevenue: number;
+  facebookReferralPurchaseRevenue: number;
+  facebookReferralTotalRevenue: number;
   metaImpressions: number;
   metaReach: number;
   metaClicks: number;
   metaInstalls: number;
   ga4Installs: number;
+  utmInstalls: number;
+  facebookReferralInstalls: number;
   publisherAdImpressions: number;
 }
 
@@ -46,11 +54,23 @@ export interface AcquisitionSummary {
   adRevenue: number;
   purchaseRevenue: number;
   revenue: number;
+  utmAdRevenue: number;
+  utmPurchaseRevenue: number;
+  utmRevenue: number;
+  facebookReferralAdRevenue: number;
+  facebookReferralPurchaseRevenue: number;
+  facebookReferralRevenue: number;
   profit: number;
+  utmProfit: number;
   roas: number | null;
+  utmRoas: number | null;
   ga4Installs: number;
+  utmInstalls: number;
+  facebookReferralInstalls: number;
   metaInstalls: number;
   costPerInstall: number | null;
+  utmCostPerInstall: number | null;
+  metaCostPerInstall: number | null;
   clicks: number;
   impressions: number;
   ctr: number | null;
@@ -71,7 +91,15 @@ export function computeAcquisitionSummary(rows: AcquisitionDailyMetric[]): Acqui
   const adRevenue = money(rows.reduce((sum, row) => sum + row.adRevenue, 0));
   const purchaseRevenue = money(rows.reduce((sum, row) => sum + row.purchaseRevenue, 0));
   const revenue = money(rows.reduce((sum, row) => sum + row.totalRevenue, 0));
+  const utmAdRevenue = money(rows.reduce((sum, row) => sum + row.utmAdRevenue, 0));
+  const utmPurchaseRevenue = money(rows.reduce((sum, row) => sum + row.utmPurchaseRevenue, 0));
+  const utmRevenue = money(rows.reduce((sum, row) => sum + row.utmTotalRevenue, 0));
+  const facebookReferralAdRevenue = money(rows.reduce((sum, row) => sum + row.facebookReferralAdRevenue, 0));
+  const facebookReferralPurchaseRevenue = money(rows.reduce((sum, row) => sum + row.facebookReferralPurchaseRevenue, 0));
+  const facebookReferralRevenue = money(rows.reduce((sum, row) => sum + row.facebookReferralTotalRevenue, 0));
   const ga4Installs = rows.reduce((sum, row) => sum + row.ga4Installs, 0);
+  const utmInstalls = rows.reduce((sum, row) => sum + row.utmInstalls, 0);
+  const facebookReferralInstalls = rows.reduce((sum, row) => sum + row.facebookReferralInstalls, 0);
   const metaInstalls = rows.reduce((sum, row) => sum + row.metaInstalls, 0);
   const clicks = rows.reduce((sum, row) => sum + row.metaClicks, 0);
   const impressions = rows.reduce((sum, row) => sum + row.metaImpressions, 0);
@@ -81,11 +109,23 @@ export function computeAcquisitionSummary(rows: AcquisitionDailyMetric[]): Acqui
     adRevenue,
     purchaseRevenue,
     revenue,
+    utmAdRevenue,
+    utmPurchaseRevenue,
+    utmRevenue,
+    facebookReferralAdRevenue,
+    facebookReferralPurchaseRevenue,
+    facebookReferralRevenue,
     profit: money(revenue - spend),
+    utmProfit: money(utmRevenue - spend),
     roas: spend > 0 ? revenue / spend : null,
+    utmRoas: spend > 0 ? utmRevenue / spend : null,
     ga4Installs,
+    utmInstalls,
+    facebookReferralInstalls,
     metaInstalls,
     costPerInstall: ga4Installs > 0 ? spend / ga4Installs : null,
+    utmCostPerInstall: utmInstalls > 0 ? spend / utmInstalls : null,
+    metaCostPerInstall: metaInstalls > 0 ? spend / metaInstalls : null,
     clicks,
     impressions,
     ctr: impressions > 0 ? (clicks / impressions) * 100 : null,
@@ -162,16 +202,21 @@ export async function getAcquisitionData(userId: string, range: DateRange): Prom
       attributed_ad_revenue: number;
       attributed_purchase_revenue: number;
       attributed_total_revenue: number;
+      facebook_referral_ad_revenue: number;
+      facebook_referral_purchase_revenue: number;
+      facebook_referral_total_revenue: number;
       meta_impressions: number;
       meta_reach: number;
       meta_clicks: number;
       meta_installs: number;
       ga4_installs: number;
+      facebook_referral_installs: number;
       publisher_ad_impressions: number;
+      facebook_referral_ad_impressions: number;
     }>(
       supabase,
       "marketing_daily_metrics",
-      "integration_id,app_id,date,currency,spend,attributed_ad_revenue,attributed_purchase_revenue,attributed_total_revenue,meta_impressions,meta_reach,meta_clicks,meta_installs,ga4_installs,publisher_ad_impressions",
+      "integration_id,app_id,date,currency,spend,attributed_ad_revenue,attributed_purchase_revenue,attributed_total_revenue,facebook_referral_ad_revenue,facebook_referral_purchase_revenue,facebook_referral_total_revenue,meta_impressions,meta_reach,meta_clicks,meta_installs,ga4_installs,facebook_referral_installs,publisher_ad_impressions,facebook_referral_ad_impressions",
       (query) => {
         let filtered = query.in("integration_id", ids).lte("date", range.to).order("date", { ascending: true });
         if (range.from) filtered = filtered.gte("date", range.from);
@@ -182,22 +227,40 @@ export async function getAcquisitionData(userId: string, range: DateRange): Prom
     return {
       integrations,
       setupError: null,
-      metrics: rows.map((row) => ({
-        integrationId: row.integration_id,
-        appId: row.app_id,
-        date: row.date,
-        currency: row.currency,
-        spend: Number(row.spend),
-        adRevenue: Number(row.attributed_ad_revenue),
-        purchaseRevenue: Number(row.attributed_purchase_revenue),
-        totalRevenue: Number(row.attributed_total_revenue),
-        metaImpressions: Number(row.meta_impressions),
-        metaReach: Number(row.meta_reach),
-        metaClicks: Number(row.meta_clicks),
-        metaInstalls: Number(row.meta_installs),
-        ga4Installs: Number(row.ga4_installs),
-        publisherAdImpressions: Number(row.publisher_ad_impressions),
-      })),
+      metrics: rows.map((row) => {
+        const utmAdRevenue = Number(row.attributed_ad_revenue);
+        const utmPurchaseRevenue = Number(row.attributed_purchase_revenue);
+        const utmTotalRevenue = Number(row.attributed_total_revenue);
+        const facebookReferralAdRevenue = Number(row.facebook_referral_ad_revenue);
+        const facebookReferralPurchaseRevenue = Number(row.facebook_referral_purchase_revenue);
+        const facebookReferralTotalRevenue = Number(row.facebook_referral_total_revenue);
+        const utmInstalls = Number(row.ga4_installs);
+        const facebookReferralInstalls = Number(row.facebook_referral_installs);
+        return {
+          integrationId: row.integration_id,
+          appId: row.app_id,
+          date: row.date,
+          currency: row.currency,
+          spend: Number(row.spend),
+          adRevenue: utmAdRevenue + facebookReferralAdRevenue,
+          purchaseRevenue: utmPurchaseRevenue + facebookReferralPurchaseRevenue,
+          totalRevenue: utmTotalRevenue + facebookReferralTotalRevenue,
+          utmAdRevenue,
+          utmPurchaseRevenue,
+          utmTotalRevenue,
+          facebookReferralAdRevenue,
+          facebookReferralPurchaseRevenue,
+          facebookReferralTotalRevenue,
+          metaImpressions: Number(row.meta_impressions),
+          metaReach: Number(row.meta_reach),
+          metaClicks: Number(row.meta_clicks),
+          metaInstalls: Number(row.meta_installs),
+          ga4Installs: utmInstalls + facebookReferralInstalls,
+          utmInstalls,
+          facebookReferralInstalls,
+          publisherAdImpressions: Number(row.publisher_ad_impressions) + Number(row.facebook_referral_ad_impressions),
+        };
+      }),
     };
   } catch (metricsError) {
     const message = metricsError instanceof Error ? metricsError.message : String(metricsError);

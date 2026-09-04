@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { computeAcquisitionSummary, type AcquisitionDailyMetric } from "@/lib/acquisition";
-import { parseGA4AcquisitionReport } from "@/lib/google/analytics";
+import {
+  buildFacebookReferralFilters,
+  buildUtmAcquisitionFilters,
+  parseGA4AcquisitionReport,
+} from "@/lib/google/analytics";
 import { parseMetaInstallActions } from "@/lib/meta/ads";
 
 const base: AcquisitionDailyMetric = {
@@ -12,11 +16,19 @@ const base: AcquisitionDailyMetric = {
   adRevenue: 3,
   purchaseRevenue: 2,
   totalRevenue: 5,
+  utmAdRevenue: 1,
+  utmPurchaseRevenue: 1,
+  utmTotalRevenue: 2,
+  facebookReferralAdRevenue: 2,
+  facebookReferralPurchaseRevenue: 1,
+  facebookReferralTotalRevenue: 3,
   metaImpressions: 1000,
   metaReach: 800,
   metaClicks: 50,
   metaInstalls: 12,
   ga4Installs: 10,
+  utmInstalls: 4,
+  facebookReferralInstalls: 6,
   publisherAdImpressions: 500,
 };
 
@@ -27,14 +39,68 @@ describe("computeAcquisitionSummary", () => {
     expect(summary.revenue).toBe(10);
     expect(summary.profit).toBe(-10);
     expect(summary.roas).toBe(0.5);
+    expect(summary.utmRevenue).toBe(4);
+    expect(summary.facebookReferralRevenue).toBe(6);
+    expect(summary.utmProfit).toBe(-16);
+    expect(summary.utmRoas).toBe(0.2);
+    expect(summary.metaInstalls).toBe(24);
+    expect(summary.ga4Installs).toBe(20);
+    expect(summary.utmInstalls).toBe(8);
+    expect(summary.facebookReferralInstalls).toBe(12);
     expect(summary.costPerInstall).toBe(1);
+    expect(summary.utmCostPerInstall).toBe(2.5);
+    expect(summary.metaCostPerInstall).toBeCloseTo(20 / 24);
     expect(summary.ctr).toBe(5);
   });
 
   it("não inventa ROAS/CPI quando o denominador é zero", () => {
-    const summary = computeAcquisitionSummary([{ ...base, spend: 0, ga4Installs: 0 }]);
+    const summary = computeAcquisitionSummary([{
+      ...base,
+      spend: 0,
+      ga4Installs: 0,
+      utmInstalls: 0,
+      metaInstalls: 0,
+    }]);
     expect(summary.roas).toBeNull();
     expect(summary.costPerInstall).toBeNull();
+    expect(summary.utmCostPerInstall).toBeNull();
+    expect(summary.metaCostPerInstall).toBeNull();
+  });
+});
+
+describe("filtros de aquisição do GA4", () => {
+  it("mantém a UTM estrita separada do fallback nativo do Facebook", () => {
+    const utm = buildUtmAcquisitionFilters({
+      streamId: "123",
+      source: "meta",
+      medium: "paid_social",
+      campaign: "lovemessage_app_br_installs",
+    });
+    const referral = buildFacebookReferralFilters("123");
+
+    expect(utm).toHaveLength(4);
+    expect(utm).toContainEqual(expect.objectContaining({
+      filter: expect.objectContaining({
+        fieldName: "firstUserMedium",
+        stringFilter: expect.objectContaining({ value: "paid_social" }),
+      }),
+    }));
+    expect(referral).toHaveLength(3);
+    expect(referral).toContainEqual(expect.objectContaining({
+      filter: expect.objectContaining({
+        fieldName: "firstUserSource",
+        stringFilter: expect.objectContaining({ value: "apps.facebook.com" }),
+      }),
+    }));
+    expect(referral).toContainEqual(expect.objectContaining({
+      filter: expect.objectContaining({
+        fieldName: "firstUserCampaignName",
+        stringFilter: expect.objectContaining({ value: "fb4a" }),
+      }),
+    }));
+    expect(referral).not.toContainEqual(expect.objectContaining({
+      filter: expect.objectContaining({ fieldName: "firstUserMedium" }),
+    }));
   });
 });
 

@@ -1,5 +1,5 @@
 import { toBrazilDateStr } from "@/lib/date";
-import { fetchGA4AcquisitionReport, type GA4DailyAcquisition } from "@/lib/google/analytics";
+import { fetchGA4AcquisitionBreakdown, type GA4DailyAcquisition } from "@/lib/google/analytics";
 import { fetchMetaDailyInsights, type MetaDailyInsight } from "@/lib/meta/ads";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { chunkedUpsert } from "@/lib/sync/persist";
@@ -120,9 +120,9 @@ export async function syncAcquisition(
 
   for (const integration of integrations) {
     try {
-      const [metaRows, analyticsRows] = await Promise.all([
+      const [metaRows, analytics] = await Promise.all([
         fetchMetaDailyInsights(userId, integration.meta_campaign_id, range),
-        fetchGA4AcquisitionReport(
+        fetchGA4AcquisitionBreakdown(
           userId,
           {
             propertyId: integration.ga4_property_id,
@@ -137,11 +137,13 @@ export async function syncAcquisition(
       ]);
 
       const metaByDate = combineMeta(metaRows);
-      const analyticsByDate = combineGA4(analyticsRows);
+      const utmByDate = combineGA4(analytics.utm);
+      const facebookReferralByDate = combineGA4(analytics.facebookReferral);
       const syncedAt = new Date().toISOString();
       const upserts = dateSequence(range.from, range.to).map((date) => {
         const meta = metaByDate.get(date);
-        const analytics = analyticsByDate.get(date);
+        const utm = utmByDate.get(date);
+        const facebookReferral = facebookReferralByDate.get(date);
         return {
           integration_id: integration.id,
           user_id: userId,
@@ -149,15 +151,20 @@ export async function syncAcquisition(
           date,
           currency: integration.currency,
           spend: round4(meta?.spend ?? 0),
-          attributed_ad_revenue: round4(analytics?.adRevenue ?? 0),
-          attributed_purchase_revenue: round4(analytics?.purchaseRevenue ?? 0),
-          attributed_total_revenue: round4(analytics?.totalRevenue ?? 0),
+          attributed_ad_revenue: round4(utm?.adRevenue ?? 0),
+          attributed_purchase_revenue: round4(utm?.purchaseRevenue ?? 0),
+          attributed_total_revenue: round4(utm?.totalRevenue ?? 0),
+          facebook_referral_ad_revenue: round4(facebookReferral?.adRevenue ?? 0),
+          facebook_referral_purchase_revenue: round4(facebookReferral?.purchaseRevenue ?? 0),
+          facebook_referral_total_revenue: round4(facebookReferral?.totalRevenue ?? 0),
           meta_impressions: meta?.impressions ?? 0,
           meta_reach: meta?.reach ?? 0,
           meta_clicks: meta?.clicks ?? 0,
           meta_installs: meta?.installs ?? 0,
-          ga4_installs: analytics?.installs ?? 0,
-          publisher_ad_impressions: analytics?.adImpressions ?? 0,
+          ga4_installs: utm?.installs ?? 0,
+          facebook_referral_installs: facebookReferral?.installs ?? 0,
+          publisher_ad_impressions: utm?.adImpressions ?? 0,
+          facebook_referral_ad_impressions: facebookReferral?.adImpressions ?? 0,
           synced_at: syncedAt,
         };
       });
