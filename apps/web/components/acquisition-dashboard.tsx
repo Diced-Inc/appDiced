@@ -131,7 +131,9 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
         <div className="ml-auto flex items-center gap-2">
           <span className={`h-2 w-2 rounded-full ${selectedIntegrations.some((item) => item.errorMessage) ? "bg-red-400" : "bg-emerald-400"}`} aria-hidden="true" />
           <span className="text-xs text-zinc-500">
-            {selectedIntegrations[0]?.lastSync ? `Atualizado ${new Date(selectedIntegrations[0].lastSync!).toLocaleString("pt-BR")}` : "Aguardando primeira sincronização"}
+            {selectedIntegrations[0]?.lastSync
+              ? `Atualizado ${new Date(selectedIntegrations[0].lastSync!).toLocaleString("pt-BR", { timeZone: "America/Fortaleza" })}`
+              : "Aguardando primeira sincronização"}
           </span>
         </div>
       </div>
@@ -186,7 +188,7 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
           </span>
         </div>
         <div className="h-[260px] w-full md:h-[340px]">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <ComposedChart data={chartData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
               <XAxis dataKey="date" stroke="#71717a" fontSize={12} tickFormatter={(value: string) => { const date = new Date(`${value}T12:00:00`); return `${date.getDate()}/${date.getMonth() + 1}`; }} />
