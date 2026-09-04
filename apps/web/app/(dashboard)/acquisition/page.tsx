@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { AcquisitionDashboard } from "@/components/acquisition-dashboard";
 import { Header } from "@/components/header";
 import { PeriodSelector } from "@/components/period-selector";
+import { SyncButton } from "@/components/sync-button";
 import { getAcquisitionData } from "@/lib/acquisition";
 import { isPeriodKey, PERIOD_LABELS, resolvePeriod, type PeriodKey } from "@/lib/period";
 
@@ -19,7 +20,10 @@ export default async function AcquisitionPage({ searchParams }: { searchParams: 
     <div>
       <Header title="Aquisição" />
       <div className="space-y-4 p-4 md:space-y-6 md:p-6">
-        <PeriodSelector />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <PeriodSelector />
+          <SyncButton provider="acquisition" />
+        </div>
         <AcquisitionDashboard
           integrations={data.integrations}
           metrics={data.metrics}
