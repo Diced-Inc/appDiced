@@ -188,7 +188,7 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
           </span>
         </div>
         <div className="h-[260px] w-full md:h-[340px]">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 800, height: 340 }}>
             <ComposedChart data={chartData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
               <XAxis dataKey="date" stroke="#71717a" fontSize={12} tickFormatter={(value: string) => { const date = new Date(`${value}T12:00:00`); return `${date.getDate()}/${date.getMonth() + 1}`; }} />
