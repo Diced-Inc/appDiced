@@ -21,10 +21,13 @@ import {
 } from "@/lib/acquisition";
 
 import { campaignAttribution, campaignResult } from "@/lib/campaign-reporting";
+import { CampaignDetails } from "@/components/campaign-details";
+import type { DateRange } from "@/lib/period";
 import { CampaignStatus } from "@/components/campaign-status";
 import type { MetaCampaign } from "@/lib/meta/ads";
 
 interface AcquisitionDashboardProps {
+  range: DateRange;
   campaigns?: MetaCampaign[];
   metaUnavailable?: boolean;
   integrations: MarketingIntegration[];
@@ -75,7 +78,9 @@ const icons = {
   ),
 };
 
-export function AcquisitionDashboard({ integrations, metrics: rawMetrics, periodLabel, setupError, campaigns = [], metaUnavailable = false }: AcquisitionDashboardProps) {
+export function AcquisitionDashboard({ integrations, metrics: rawMetrics, periodLabel, range, setupError, campaigns = [], metaUnavailable = false }: AcquisitionDashboardProps) {
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const detailIntegration = integrations.find(i => i.id === detailId);
   const attribution = useMemo(() => campaignAttribution(rawMetrics, integrations), [rawMetrics, integrations]);
   const metrics = attribution.rows;
   const currencies = new Set(integrations.map((item) => item.currency));
@@ -140,7 +145,7 @@ export function AcquisitionDashboard({ integrations, metrics: rawMetrics, period
   const profitable = !unavailable && summary.spend > 0 && summary.profit > 0;
   const syncDates = selectedIntegrations.map(i => i.lastSync).filter((value): value is string => !!value).sort();
   const oldestSync = syncDates.length === selectedIntegrations.length ? syncDates[0] : null;
-  const metadata = (integration: MarketingIntegration) => <CampaignStatus integration={integration} campaign={campaigns.find(c => c.id === integration.metaCampaignId)} ambiguous={attribution.ambiguousIds.includes(integration.id)} duplicate={attribution.duplicateUtmIds.includes(integration.id)} />;
+  const metadata = (integration: MarketingIntegration) => <><CampaignStatus integration={integration} campaign={campaigns.find(c => c.id === integration.metaCampaignId)} ambiguous={attribution.ambiguousIds.includes(integration.id)} duplicate={attribution.duplicateUtmIds.includes(integration.id)} /><button type="button" onClick={() => setDetailId(integration.id)} className="mt-2 rounded bg-violet-500/10 px-3 py-2 text-xs text-violet-300 hover:bg-violet-500/20">Criativos, rastreamento e histórico</button></>;
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -172,6 +177,7 @@ export function AcquisitionDashboard({ integrations, metrics: rawMetrics, period
         </div>
       )}
 
+      {detailIntegration && <CampaignDetails key={`${detailIntegration.id}:${range.from}:${range.to}`} integration={detailIntegration} range={range} onClose={() => setDetailId(null)} />}
       <div className="grid grid-cols-2 items-stretch gap-2 sm:gap-3 md:gap-4 lg:grid-cols-4">
         <KpiCard title={`Investimento · ${periodLabel}`} value={currency(summary.spend, currencyCode)} subtitle={`${summary.impressions.toLocaleString("pt-BR")} impressões • ${summary.clicks.toLocaleString("pt-BR")} cliques`} icon={icons.spend} />
         <KpiCard title="Receita Facebook (GA4)" value={unavailable ? "—" : currency(summary.revenue, currencyCode)} subtitle={`${currency(summary.utmRevenue, currencyCode)} com UTM exata`} icon={icons.revenue} />

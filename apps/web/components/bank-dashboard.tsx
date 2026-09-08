@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { KpiCard } from "@diced/ui/kpi-card";
 import { Card } from "@diced/ui/card";
+import { BankExpenses } from "@/components/bank-expenses";
 import { Badge } from "@diced/ui/badge";
 import type { BankData } from "@/lib/data";
 import type { MonthlyEarning } from "@/lib/types";
@@ -151,6 +152,8 @@ export function BankDashboard({ initial }: { initial: BankData }) {
           icon={icons.received}
         />
       </div>
+
+      <BankExpenses />
 
       {/* Threshold */}
       {receivable > 0 && (

@@ -35,6 +35,7 @@ export default async function AcquisitionPage({ searchParams }: { searchParams: 
           integrations={data.integrations}
           metrics={data.metrics}
           periodLabel={period.label}
+          range={period.range}
           campaigns={campaigns}
           metaUnavailable={metaUnavailable}
           setupError={data.setupError}

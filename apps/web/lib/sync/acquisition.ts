@@ -1,3 +1,4 @@
+import { recordCampaignObservation } from "@/lib/campaign-history";
 import { toBrazilDateStr } from "@/lib/date";
 import { fetchGA4AcquisitionBreakdown, type GA4DailyAcquisition } from "@/lib/google/analytics";
 import { fetchMetaDailyInsights, type MetaDailyInsight } from "@/lib/meta/ads";
@@ -171,6 +172,8 @@ export async function syncAcquisition(
 
       await chunkedUpsert(supabase, "marketing_daily_metrics", upserts, "integration_id,date");
       rowCount += upserts.length;
+      try { await recordCampaignObservation(userId, integration.id, integration.meta_campaign_id); }
+      catch (historyError) { errors.push("Histórico: " + (historyError instanceof Error ? historyError.message : "indisponível")); }
       await supabase
         .from("marketing_integrations")
         .update({ last_sync: syncedAt, error_message: null, updated_at: syncedAt })

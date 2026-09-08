@@ -32,6 +32,53 @@ interface GA4ReportResponse {
   error?: { message?: string };
 }
 
+async function campaignReport(userId: string, propertyId: string, body: Record<string, unknown>): Promise<GA4ReportResponse> {
+  const token = await getGoogleReportingAccessToken(userId);
+  if (!token) throw new Error("Google Analytics desconectado.");
+  const response = await fetch(`${DATA_API}/properties/${encodeURIComponent(propertyId)}:runReport`, {
+    method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body), cache: "no-store", signal: AbortSignal.timeout(45000),
+  });
+  const report = await response.json() as GA4ReportResponse;
+  if (!response.ok || report.error) throw new Error(report.error?.message || "Não foi possível consultar o GA4.");
+  if ((report.rowCount ?? 0) > (report.rows?.length ?? 0)) throw new Error("Relatório GA4 incompleto. Reduza o período.");
+  return report;
+}
+
+export async function fetchCampaignTracking(userId: string, config: GA4AcquisitionConfig, range: { from: string; to: string }): Promise<import("@/lib/campaign-detail-types").TrackingReport> {
+  const [events, attributed] = await Promise.all([
+    campaignReport(userId, config.propertyId, {
+      dateRanges: [{ startDate: range.from, endDate: range.to }], dimensions: [{ name: "eventName" }, { name: "date" }], metrics: [{ name: "eventCount" }],
+      dimensionFilter: { andGroup: { expressions: [exactFilter("streamId", config.streamId), { filter: { fieldName: "eventName", inListFilter: { values: ["first_open", "session_start", "ad_impression", "ad_paid", "purchase", "in_app_purchase"] } } }] } }, limit: "10000",
+    }),
+    campaignReport(userId, config.propertyId, {
+      dateRanges: [{ startDate: range.from, endDate: range.to }], metrics: [{ name: "newUsers" }, { name: "totalAdRevenue" }, { name: "totalRevenue" }],
+      dimensionFilter: { andGroup: { expressions: buildUtmAcquisitionFilters(config) } }, currencyCode: config.currency, limit: "10",
+    }),
+  ]);
+  const byName = new Map<string, { name: string; count: number; lastDate: string | null }>();
+  for (const row of events.rows ?? []) {
+    const name = row.dimensionValues?.[0]?.value || ""; const date = ga4Date(row.dimensionValues?.[1]?.value);
+    const old = byName.get(name) || { name, count: 0, lastDate: null };
+    byName.set(name, { name, count: old.count + numeric(row.metricValues?.[0]?.value), lastDate: date && (!old.lastDate || date > old.lastDate) ? date : old.lastDate });
+  }
+  const values = attributed.rows?.[0]?.metricValues;
+  return { events: [...byName.values()], utmUsers: numeric(values?.[0]?.value), adRevenue: numeric(values?.[1]?.value), totalRevenue: numeric(values?.[2]?.value), range,
+    thresholded: !!(events.metadata?.subjectToThresholding || attributed.metadata?.subjectToThresholding), timeZone: attributed.metadata?.timeZone || events.metadata?.timeZone || null };
+}
+
+export async function fetchCampaignCohortRows(userId: string, config: GA4AcquisitionConfig, date: string, until: string) {
+  const report = await campaignReport(userId, config.propertyId, {
+    dateRanges: [{ startDate: date, endDate: until }], dimensions: [{ name: "date" }], metrics: [{ name: "newUsers" }, { name: "totalRevenue" }, { name: "totalAdRevenue" }],
+    dimensionFilter: { andGroup: { expressions: [...buildUtmAcquisitionFilters(config), exactFilter("firstSessionDate", date.replaceAll("-", ""))] } },
+    currencyCode: config.currency, limit: "100",
+  });
+  return { rows: (report.rows ?? []).flatMap(row => {
+    const day = ga4Date(row.dimensionValues?.[0]?.value);
+    return day ? [{ date: day, users: numeric(row.metricValues?.[0]?.value), revenue: numeric(row.metricValues?.[1]?.value), adRevenue: numeric(row.metricValues?.[2]?.value) }] : [];
+  }), thresholded: !!report.metadata?.subjectToThresholding, timeZone: report.metadata?.timeZone || null };
+}
+
 interface CustomAdPaidRow {
   date: string;
   revenue: number;

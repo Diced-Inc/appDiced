@@ -288,3 +288,36 @@ export async function fetchMetaDailyInsights(
       installs: parseMetaInstallActions(row.actions),
     }));
 }
+
+export async function fetchCampaignCreatives(userId: string, campaignId: string, range: { from: string; to: string }): Promise<import("@/lib/campaign-detail-types").CreativeResult[]> {
+  const token = await getMetaAccessToken(userId);
+  if (!token) throw new Error("Meta desconectada ou sessão expirada.");
+  type Ad = { id: string; name?: string; effective_status?: string; creative?: { id?: string; thumbnail_url?: string; body?: string; title?: string; object_story_spec?: { video_data?: { message?: string; title?: string }; link_data?: { message?: string; name?: string } } } };
+  type Insight = RawMetaInsight & { ad_id?: string; ad_name?: string };
+  const [ads, insights] = await Promise.all([
+    fetchAllPages<Ad>(`${campaignId}/ads`, token, { fields: "id,name,effective_status,creative{id,thumbnail_url,body,title,object_story_spec}", limit: "100" }),
+    fetchAllPages<Insight>(`${campaignId}/insights`, token, { fields: "ad_id,ad_name,spend,impressions,clicks,actions", level: "ad", time_range: JSON.stringify({ since: range.from, until: range.to }), limit: "500" }),
+  ]);
+  const byId = new Map(insights.filter(i => i.ad_id).map(i => [i.ad_id!, i]));
+  const allAds = new Map(ads.map(a => [a.id, a]));
+  for (const i of insights) if (i.ad_id && !allAds.has(i.ad_id)) allAds.set(i.ad_id, { id: i.ad_id, name: i.ad_name, effective_status: "UNKNOWN" });
+  return [...allAds.values()].map(ad => {
+    const row = byId.get(ad.id); const spend = toNumber(row?.spend); const impressions = toNumber(row?.impressions);
+    const clicks = toNumber(row?.clicks); const installs = parseMetaInstallActions(row?.actions);
+    const creative = ad.creative; const story = creative?.object_story_spec;
+    const thumbnail = creative?.thumbnail_url;
+    return { id: ad.id, name: ad.name || ad.id, status: ad.effective_status || "UNKNOWN",
+      thumbnail: thumbnail?.startsWith("https://") ? thumbnail : null, creativeId: creative?.id || null,
+      body: creative?.body || story?.video_data?.message || story?.link_data?.message || "",
+      title: creative?.title || story?.video_data?.title || story?.link_data?.name || "",
+      spend, impressions, clicks, installs, cpi: installs > 0 ? spend / installs : null, ctr: impressions > 0 ? clicks / impressions * 100 : null };
+  }).sort((a, b) => b.spend - a.spend || a.name.localeCompare(b.name));
+}
+
+export async function fetchCampaignObservation(userId: string, campaignId: string) {
+  const token = await getMetaAccessToken(userId);
+  if (!token) throw new Error("Meta desconectada.");
+  const campaign = await graphRequest<{ name?: string; status?: string; effective_status?: string; daily_budget?: string; lifetime_budget?: string }>(campaignId, token, { fields: "name,status,effective_status,daily_budget,lifetime_budget" });
+  const ads = await fetchAllPages<{ id: string; name?: string; status?: string; creative?: { id?: string } }>(`${campaignId}/ads`, token, { fields: "id,name,status,creative{id}", limit: "100" });
+  return { campaign, ads: ads.map(a => ({ id: a.id, name: a.name, status: a.status, creativeId: a.creative?.id || null })).sort((a, b) => a.id.localeCompare(b.id)) };
+}
