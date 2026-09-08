@@ -24,7 +24,7 @@ Histórico guarda decisões manuais e configurações observadas. Sincronizaçã
 
 ## Banco
 
-Despesas manuais BRL/USD, categorias e cancelamento reversível ficam em `bank_expenses`. A cotação de referência USD/BRL é informada por mês e fica em `bank_month_rates`. Gastos Meta vêm das campanhas vinculadas; não equivalem à fatura inteira da conta. A agregação evita repetir campanha/conta/dia/moeda e mantém a linha com sincronização mais recente. O usuário não deve lançar novamente essas despesas de mídia.
+Despesas manuais BRL/USD, categorias e cancelamento reversível ficam em `bank_expenses`. A cotação USD/BRL é consultada automaticamente na API pública Frankfurter (https://frankfurter.dev/v1/), com cache de uma hora, limite de oito segundos e validação da resposta. O mês atual usa a última cotação disponível até hoje; meses anteriores usam a cotação disponível até o último dia do mês, nunca a atual. Fonte e data efetiva aparecem no painel. Ajustes manuais opcionais ficam em `bank_month_rates` e têm prioridade; consultas automáticas não sobrescrevem esses valores. Falhas mantêm os gastos visíveis e oferecem nova tentativa ou ajuste manual. Gastos Meta vêm das campanhas vinculadas; não equivalem à fatura inteira da conta. A agregação evita repetir campanha/conta/dia/moeda e mantém a linha com sincronização mais recente. O usuário não deve lançar novamente essas despesas de mídia.
 
 O saldo mensal usa receita AdMob gerada, não recebimentos. Cotação ausente/moeda sem conversão mantém saldo indisponível. Não altera o bruto a receber do AdMob nem marca pagamentos. Meses antigos não são recalculados com cotação atual automaticamente.
 

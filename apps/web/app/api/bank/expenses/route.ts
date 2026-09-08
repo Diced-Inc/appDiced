@@ -5,6 +5,7 @@ import { getBankData } from "@/lib/data";
 import { expenseInput, monthlyBalance, type Expense, type MediaSpend } from "@/lib/bank-expenses";
 import { fetchAll } from "@/lib/sync/persist";
 import { toBrazilDateStr } from "@/lib/date";
+import { bankExchangeRate } from "@/lib/bank-exchange-rate";
 
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
 function monthRange(value: string | null) {
@@ -32,9 +33,10 @@ export async function GET(req: NextRequest) {
     for (const row of unique.values()) { const i = owners.get(row.integration_id)!; const key = `${i.meta_ad_account_id}:${i.meta_campaign_id}:${row.currency}`; const old = mediaByCampaign.get(key); mediaByCampaign.set(key, { campaign: i.meta_campaign_name, currency: row.currency, spend: (old?.spend || 0) + Number(row.spend) }); }
     const media = [...mediaByCampaign.values()]; const grossUsd = bank.months.find(m => m.month === range.from)?.gross ?? (bank.currentMonth.month === range.from ? bank.currentMonth.gross : 0);
     const expenseRows = (expenses.data || []).map(e => ({ ...e, amount: Number(e.amount) })) as Expense[];
-    const usdBrl = rate.data ? Number(rate.data.usd_brl) : null;
+    const exchange = await bankExchangeRate(range.from.slice(0, 7), toBrazilDateStr(), rate.data ? Number(rate.data.usd_brl) : null);
+    const { usdBrl } = exchange;
     const mediaIncomplete = (integrations.data || []).some(i => i.error_message || !i.last_sync);
-    return json({ month: range.from, grossUsd, media, expenses: expenseRows, usdBrl, rateUpdatedAt: rate.data?.updated_at || null, ...monthlyBalance(grossUsd, media, expenseRows, usdBrl), mediaIncomplete, monitoredCampaigns: integrations.data?.length || 0 });
+    return json({ month: range.from, grossUsd, media, expenses: expenseRows, ...exchange, rateUpdatedAt: rate.data?.updated_at || null, ...monthlyBalance(grossUsd, media, expenseRows, usdBrl), mediaIncomplete, monitoredCampaigns: integrations.data?.length || 0 });
   } catch (error) { return json({ error: error instanceof Error ? error.message : "Despesas indisponíveis." }, 502); }
 }
 
