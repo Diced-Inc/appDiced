@@ -122,7 +122,7 @@ export function AcquisitionSettings({
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-base font-semibold font-heading md:text-lg">Aquisição paga</h2>
+          <h2 className="text-base font-semibold font-heading md:text-lg">Campanhas</h2>
           <p className="mt-1 max-w-2xl text-xs text-zinc-400 md:text-sm">
             Cruza o gasto da campanha na Meta com instalações e receita atribuída no Firebase/GA4.
           </p>

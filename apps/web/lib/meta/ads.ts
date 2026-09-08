@@ -33,6 +33,8 @@ export interface MetaCampaign {
   name: string;
   status: string;
   effectiveStatus: string;
+  dailyBudget?: string;
+  lifetimeBudget?: string;
 }
 
 export interface MetaDailyInsight {
@@ -231,8 +233,10 @@ export async function listMetaCampaigns(userId: string, accountId: string): Prom
     name?: string;
     status?: string;
     effective_status?: string;
+    daily_budget?: string;
+    lifetime_budget?: string;
   }>(`${normalized}/campaigns`, token, {
-    fields: "id,name,status,effective_status",
+    fields: "id,name,status,effective_status,daily_budget,lifetime_budget",
     limit: "200",
   });
 
@@ -242,6 +246,8 @@ export async function listMetaCampaigns(userId: string, accountId: string): Prom
     name: row.name || row.id,
     status: row.status || "UNKNOWN",
     effectiveStatus: row.effective_status || "UNKNOWN",
+    dailyBudget: row.daily_budget,
+    lifetimeBudget: row.lifetime_budget,
   }));
 }
 

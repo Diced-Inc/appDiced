@@ -8,7 +8,7 @@ const navItems = [
   { href: "/", label: "Visão Geral", icon: "LayoutDashboard" },
   { href: "/apps", label: "Aplicativos", icon: "Smartphone" },
   { href: "/revenue", label: "Receita", icon: "DollarSign" },
-  { href: "/acquisition", label: "Aquisição", icon: "Megaphone" },
+  { href: "/acquisition", label: "Campanhas", icon: "Megaphone" },
   { href: "/banco", label: "Banco", icon: "Landmark" },
   { href: "/settings", label: "Configurações", icon: "Settings" },
 ];

@@ -20,7 +20,13 @@ import {
   type MarketingIntegration,
 } from "@/lib/acquisition";
 
+import { campaignAttribution, campaignResult } from "@/lib/campaign-reporting";
+import { CampaignStatus } from "@/components/campaign-status";
+import type { MetaCampaign } from "@/lib/meta/ads";
+
 interface AcquisitionDashboardProps {
+  campaigns?: MetaCampaign[];
+  metaUnavailable?: boolean;
   integrations: MarketingIntegration[];
   metrics: AcquisitionDailyMetric[];
   periodLabel: string;
@@ -69,7 +75,9 @@ const icons = {
   ),
 };
 
-export function AcquisitionDashboard({ integrations, metrics, periodLabel, setupError }: AcquisitionDashboardProps) {
+export function AcquisitionDashboard({ integrations, metrics: rawMetrics, periodLabel, setupError, campaigns = [], metaUnavailable = false }: AcquisitionDashboardProps) {
+  const attribution = useMemo(() => campaignAttribution(rawMetrics, integrations), [rawMetrics, integrations]);
+  const metrics = attribution.rows;
   const currencies = new Set(integrations.map((item) => item.currency));
   const [selectedAppId, setSelectedAppId] = useState(currencies.size <= 1 ? "all" : integrations[0]?.appId || "all");
 
@@ -96,8 +104,8 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
 
   const campaignRows = useMemo(() => selectedIntegrations.map((integration) => {
     const rows = metrics.filter((row) => row.integrationId === integration.id);
-    return { integration, summary: computeAcquisitionSummary(rows) };
-  }), [selectedIntegrations, metrics]);
+    return { integration, summary: computeAcquisitionSummary(rows), missing: !!setupError || !!integration.errorMessage || attribution.duplicateUtmIds.includes(integration.id) };
+  }), [selectedIntegrations, metrics, setupError, attribution.duplicateUtmIds]);
 
   if (setupError && integrations.length === 0) {
     return (
@@ -118,7 +126,7 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
             Vincule o app, a campanha da Meta e o fluxo do Firebase/GA4. O painel passará a calcular gasto, receita atribuída, lucro, ROAS e custo por instalação.
           </p>
           <a href="/settings" className="mt-5 inline-flex cursor-pointer rounded-lg bg-violet-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300">
-            Configurar aquisição
+            Vincular campanha
           </a>
         </div>
       </Card>
@@ -127,7 +135,12 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
 
   const roasLabel = summary.roas === null ? "—" : `${summary.roas.toFixed(2)}x`;
   const utmRoasLabel = summary.utmRoas === null ? "—" : `${summary.utmRoas.toFixed(2)}x`;
-  const profitable = summary.profit >= 0;
+  const unavailable = !!setupError || selectedIntegrations.some(i => !!i.errorMessage || attribution.duplicateUtmIds.includes(i.id));
+  const resultLabel = campaignResult(summary.spend, summary.revenue, unavailable);
+  const profitable = !unavailable && summary.spend > 0 && summary.profit > 0;
+  const syncDates = selectedIntegrations.map(i => i.lastSync).filter((value): value is string => !!value).sort();
+  const oldestSync = syncDates.length === selectedIntegrations.length ? syncDates[0] : null;
+  const metadata = (integration: MarketingIntegration) => <CampaignStatus integration={integration} campaign={campaigns.find(c => c.id === integration.metaCampaignId)} ambiguous={attribution.ambiguousIds.includes(integration.id)} duplicate={attribution.duplicateUtmIds.includes(integration.id)} />;
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -136,20 +149,23 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
           {currencies.size <= 1 && (
             <button type="button" onClick={() => setSelectedAppId("all")} className={`min-h-9 w-full cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 sm:w-auto ${selectedAppId === "all" ? "bg-violet-500/10 text-violet-400" : "text-zinc-400 hover:text-white"}`}>Todos os apps</button>
           )}
-          {integrations.map((integration) => (
+          {integrations.filter((integration, index, all) => all.findIndex(i => i.appId === integration.appId) === index).map((integration) => (
             <button key={integration.id} type="button" onClick={() => setSelectedAppId(integration.appId)} className={`min-h-9 w-full cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 sm:w-auto ${selectedAppId === integration.appId ? "bg-violet-500/10 text-violet-400" : "text-zinc-400 hover:text-white"}`}>{integration.appName}</button>
           ))}
         </div>
         <div className="flex items-center justify-end gap-2 sm:ml-auto">
           <span className={`h-2 w-2 rounded-full ${selectedIntegrations.some((item) => item.errorMessage) ? "bg-red-400" : "bg-emerald-400"}`} aria-hidden="true" />
           <span className="text-xs text-zinc-500">
-            {selectedIntegrations[0]?.lastSync
-              ? `Atualizado ${shortDateTime(selectedIntegrations[0].lastSync)}`
+            {oldestSync
+              ? `Atualizado ${shortDateTime(oldestSync)}`
               : "Aguardando primeira sincronização"}
           </span>
         </div>
       </div>
 
+      {setupError && <p role="alert" className="text-sm text-amber-300">Métricas indisponíveis. Tente sincronizar novamente.</p>}
+      {metaUnavailable && <p role="status" className="text-sm text-amber-300">Não foi possível atualizar o status e orçamento na Meta. Os resultados salvos continuam disponíveis.</p>}
+      {attribution.ambiguousIds.some(id => selectedIds.has(id)) && <p role="status" className="text-sm text-amber-300">Há campanhas no mesmo fluxo. Receita genérica do Facebook foi excluída dos totais para evitar atribuição duplicada. UTMs compartilhadas também são excluídas até corrigir o vínculo.</p>}
       {selectedIntegrations.some((item) => item.errorMessage) && (
         <div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-300">
           {selectedIntegrations.find((item) => item.errorMessage)?.errorMessage}
@@ -158,9 +174,9 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
 
       <div className="grid grid-cols-2 items-stretch gap-2 sm:gap-3 md:gap-4 lg:grid-cols-4">
         <KpiCard title={`Investimento · ${periodLabel}`} value={currency(summary.spend, currencyCode)} subtitle={`${summary.impressions.toLocaleString("pt-BR")} impressões • ${summary.clicks.toLocaleString("pt-BR")} cliques`} icon={icons.spend} />
-        <KpiCard title="Receita Facebook (GA4)" value={currency(summary.revenue, currencyCode)} subtitle={`${currency(summary.utmRevenue, currencyCode)} com UTM exata`} icon={icons.revenue} />
-        <KpiCard title="Lucro Facebook (GA4)" value={currency(summary.profit, currencyCode)} change={summary.spend > 0 ? `ROAS amplo ${roasLabel} • UTM ${utmRoasLabel}` : "Sem gasto no período"} changeType={profitable ? "positive" : "negative"} icon={icons.profit} />
-        <KpiCard title="Facebook no GA4" value={summary.ga4Installs.toLocaleString("pt-BR")} subtitle={summary.costPerInstall === null ? "Primeiras aberturas" : `Primeiras aberturas • CPI ${currency(summary.costPerInstall, currencyCode)}`} icon={icons.installs} />
+        <KpiCard title="Receita Facebook (GA4)" value={unavailable ? "—" : currency(summary.revenue, currencyCode)} subtitle={`${currency(summary.utmRevenue, currencyCode)} com UTM exata`} icon={icons.revenue} />
+        <KpiCard title="Saldo após mídia (GA4)" value={unavailable ? "—" : currency(summary.profit, currencyCode)} change={unavailable ? "Atribuição indisponível" : summary.spend > 0 ? `ROAS amplo ${roasLabel} • UTM ${utmRoasLabel}` : "Sem gasto no período"} changeType={unavailable || summary.spend === 0 || summary.profit === 0 ? "neutral" : profitable ? "positive" : "negative"} icon={icons.profit} />
+        <KpiCard title="Facebook no GA4" value={unavailable ? "—" : summary.ga4Installs.toLocaleString("pt-BR")} subtitle={summary.costPerInstall === null ? "Primeiras aberturas" : `Primeiras aberturas • CPI ${currency(summary.costPerInstall, currencyCode)}`} icon={icons.installs} />
       </div>
 
       <Card className="overflow-hidden">
@@ -196,15 +212,15 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
         <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-base font-semibold font-heading md:text-lg">Gasto x receita atribuída</h2>
-            <p className="mt-1 text-xs text-zinc-500">Receita da UTM exata somada ao fallback identificado pelo GA4 como apps.facebook.com / fb4a.</p>
+            <p className="mt-1 text-xs text-zinc-500">Receita atribuída por UTM e estimativa Facebook para fluxos com uma única campanha. Valores indisponíveis não comprovam ausência de receita.</p>
           </div>
-          <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-medium ${profitable ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
-            {profitable ? "Operação positiva" : "Abaixo do break-even"}
+          <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-medium ${profitable ? "bg-emerald-500/10 text-emerald-400" : unavailable || summary.spend === 0 || summary.profit === 0 ? "bg-white/5 text-zinc-400" : "bg-red-500/10 text-red-400"}`}>
+            {resultLabel}
           </span>
         </div>
         <div className="h-[240px] min-w-0 w-full sm:h-[260px] md:h-[340px]">
           <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 800, height: 340 }}>
-            <ComposedChart data={chartData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+            <ComposedChart data={unavailable ? [] : chartData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
               <XAxis dataKey="date" stroke="#71717a" fontSize={12} tickFormatter={(value: string) => { const date = new Date(`${value}T12:00:00`); return `${date.getDate()}/${date.getMonth() + 1}`; }} />
               <YAxis stroke="#71717a" fontSize={12} tickFormatter={(value: number) => compactCurrency(value, currencyCode)} width={66} />
@@ -231,20 +247,20 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
           <a href="/settings" className="cursor-pointer text-xs font-medium text-violet-400 transition-colors hover:text-violet-300">Configurar</a>
         </div>
         <div className="grid gap-3 lg:hidden">
-          {campaignRows.map(({ integration, summary: row }) => (
+          {campaignRows.map(({ integration, summary: row, missing }) => (
             <div key={integration.id} className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
               <div className="min-w-0 border-b border-white/5 pb-3">
                 <p className="truncate text-sm font-medium text-white">{integration.metaCampaignName}</p>
-                <p className="mt-0.5 truncate text-[11px] text-zinc-500">{integration.appName} • {integration.utmCampaign}</p>
+                <p className="mt-0.5 truncate text-[11px] text-zinc-500">{integration.appName} • {integration.utmCampaign}</p>{metadata(integration)}
               </div>
               <div className="grid grid-cols-3 gap-2 py-3">
                 <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">Gasto</p><p className="mt-1 whitespace-nowrap text-sm font-medium text-zinc-200 tabular-nums">{currency(row.spend, integration.currency)}</p></div>
-                <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">Receita</p><p className="mt-1 whitespace-nowrap text-sm font-medium text-zinc-200 tabular-nums">{currency(row.revenue, integration.currency)}</p></div>
-                <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">Lucro</p><p className={`mt-1 whitespace-nowrap text-sm font-medium tabular-nums ${row.profit >= 0 ? "text-emerald-400" : "text-red-400"}`}>{currency(row.profit, integration.currency)}</p></div>
+                <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">Receita</p><p className="mt-1 whitespace-nowrap text-sm font-medium text-zinc-200 tabular-nums">{missing ? "—" : currency(row.revenue, integration.currency)}</p></div>
+                <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">Lucro</p><p className={`mt-1 whitespace-nowrap text-sm font-medium tabular-nums ${missing || row.spend === 0 || row.profit === 0 ? "text-zinc-400" : row.profit > 0 ? "text-emerald-400" : "text-red-400"}`}>{missing ? "—" : currency(row.profit, integration.currency)}</p></div>
               </div>
               <div className="grid grid-cols-2 gap-2 border-y border-white/5 py-3">
-                <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">ROAS GA4</p><p className="mt-1 text-sm font-medium text-zinc-200 tabular-nums">{row.roas === null ? "—" : `${row.roas.toFixed(2)}x`}</p></div>
-                <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">CPI GA4</p><p className="mt-1 text-sm font-medium text-zinc-200 tabular-nums">{row.costPerInstall === null ? "—" : currency(row.costPerInstall, integration.currency)}</p></div>
+                <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">ROAS GA4</p><p className="mt-1 text-sm font-medium text-zinc-200 tabular-nums">{missing || row.roas === null ? "—" : `${row.roas.toFixed(2)}x`}</p></div>
+                <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">CPI GA4</p><p className="mt-1 text-sm font-medium text-zinc-200 tabular-nums">{missing || row.costPerInstall === null ? "—" : currency(row.costPerInstall, integration.currency)}</p></div>
               </div>
               <div className="grid grid-cols-3 gap-2 pt-3 text-center">
                 <div><p className="text-[10px] uppercase tracking-wide text-zinc-500">Meta</p><p className="mt-1 text-sm font-semibold text-white tabular-nums">{row.metaInstalls.toLocaleString("pt-BR")}</p></div>
@@ -257,21 +273,21 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
         <div className="hidden overflow-x-auto lg:block">
           <table className="w-full min-w-[1120px] text-left text-sm">
             <thead className="border-b border-white/5 text-xs uppercase tracking-wide text-zinc-500">
-              <tr><th className="pb-3 font-medium">Campanha</th><th className="pb-3 text-right font-medium">Gasto</th><th className="pb-3 text-right font-medium">Receita GA4</th><th className="pb-3 text-right font-medium">Receita UTM</th><th className="pb-3 text-right font-medium">Lucro GA4</th><th className="pb-3 text-right font-medium">ROAS GA4</th><th className="pb-3 text-right font-medium">Meta</th><th className="pb-3 text-right font-medium">GA4 Facebook</th><th className="pb-3 text-right font-medium">UTM exata</th><th className="pb-3 text-right font-medium">CPI GA4</th></tr>
+              <tr><th className="pb-3 font-medium">Campanha</th><th className="pb-3 text-right font-medium">Gasto</th><th className="pb-3 text-right font-medium">Receita GA4</th><th className="pb-3 text-right font-medium">Receita UTM</th><th className="pb-3 text-right font-medium">Saldo após mídia</th><th className="pb-3 text-right font-medium">ROAS GA4</th><th className="pb-3 text-right font-medium">Meta</th><th className="pb-3 text-right font-medium">GA4 Facebook</th><th className="pb-3 text-right font-medium">UTM exata</th><th className="pb-3 text-right font-medium">CPI GA4</th></tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {campaignRows.map(({ integration, summary: row }) => (
+              {campaignRows.map(({ integration, summary: row, missing }) => (
                 <tr key={integration.id}>
                   <td className="py-3 pr-4"><p className="font-medium text-white">{integration.metaCampaignName}</p><p className="mt-0.5 text-xs text-zinc-500">{integration.appName} • {integration.utmCampaign}</p></td>
                   <td className="py-3 text-right text-zinc-300">{currency(row.spend, integration.currency)}</td>
-                  <td className="py-3 text-right text-zinc-300">{currency(row.revenue, integration.currency)}</td>
-                  <td className="py-3 text-right text-zinc-300">{currency(row.utmRevenue, integration.currency)}</td>
-                  <td className={`py-3 text-right font-medium ${row.profit >= 0 ? "text-emerald-400" : "text-red-400"}`}>{currency(row.profit, integration.currency)}</td>
-                  <td className="py-3 text-right text-zinc-300">{row.roas === null ? "—" : `${row.roas.toFixed(2)}x`}</td>
+                  <td className="py-3 text-right text-zinc-300">{missing ? "—" : currency(row.revenue, integration.currency)}</td>
+                  <td className="py-3 text-right text-zinc-300">{missing ? "—" : currency(row.utmRevenue, integration.currency)}</td>
+                  <td className={`py-3 text-right font-medium ${missing || row.spend === 0 || row.profit === 0 ? "text-zinc-400" : row.profit > 0 ? "text-emerald-400" : "text-red-400"}`}>{missing ? "—" : currency(row.profit, integration.currency)}</td>
+                  <td className="py-3 text-right text-zinc-300">{missing || row.roas === null ? "—" : `${row.roas.toFixed(2)}x`}</td>
                   <td className="py-3 text-right text-zinc-300">{row.metaInstalls.toLocaleString("pt-BR")}</td>
                   <td className="py-3 text-right text-zinc-300">{row.ga4Installs.toLocaleString("pt-BR")}</td>
                   <td className="py-3 text-right text-zinc-300">{row.utmInstalls.toLocaleString("pt-BR")}</td>
-                  <td className="py-3 text-right text-zinc-300">{row.costPerInstall === null ? "—" : currency(row.costPerInstall, integration.currency)}</td>
+                  <td className="py-3 text-right text-zinc-300">{missing || row.costPerInstall === null ? "—" : currency(row.costPerInstall, integration.currency)}</td>
                 </tr>
               ))}
             </tbody>
@@ -280,7 +296,7 @@ export function AcquisitionDashboard({ integrations, metrics, periodLabel, setup
       </Card>
 
       <p className="text-xs leading-relaxed text-zinc-500">
-        Receita GA4 = UTM configurada + fallback apps.facebook.com / fb4a. A receita UTM permanece disponível como cenário conservador. O painel revisa os últimos 14 dias a cada coleta e 90 dias diariamente.
+        Receita GA4 = UTM configurada + fallback apps.facebook.com / fb4a. A receita genérica não identifica uma campanha e só entra nos totais quando o fluxo tem um único vínculo. Em fluxos compartilhados, são usadas apenas UTMs exclusivas. O painel revisa os últimos 14 dias a cada coleta e 90 dias diariamente.
       </p>
     </div>
   );
