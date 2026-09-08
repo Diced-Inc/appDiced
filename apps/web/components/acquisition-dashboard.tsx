@@ -284,7 +284,7 @@ export function AcquisitionDashboard({ integrations, metrics: rawMetrics, period
             <tbody className="divide-y divide-white/5">
               {campaignRows.map(({ integration, summary: row, missing }) => (
                 <tr key={integration.id}>
-                  <td className="py-3 pr-4"><p className="font-medium text-white">{integration.metaCampaignName}</p><p className="mt-0.5 text-xs text-zinc-500">{integration.appName} • {integration.utmCampaign}</p></td>
+                  <td className="py-3 pr-4"><p className="font-medium text-white">{integration.metaCampaignName}</p><p className="mt-0.5 text-xs text-zinc-500">{integration.appName} • {integration.utmCampaign}</p>{metadata(integration)}</td>
                   <td className="py-3 text-right text-zinc-300">{currency(row.spend, integration.currency)}</td>
                   <td className="py-3 text-right text-zinc-300">{missing ? "—" : currency(row.revenue, integration.currency)}</td>
                   <td className="py-3 text-right text-zinc-300">{missing ? "—" : currency(row.utmRevenue, integration.currency)}</td>
