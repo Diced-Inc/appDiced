@@ -24,6 +24,7 @@ import { campaignAttribution, campaignResult } from "@/lib/campaign-reporting";
 import { CampaignDetails } from "@/components/campaign-details";
 import type { DateRange } from "@/lib/period";
 import { CampaignStatus } from "@/components/campaign-status";
+import { shiftDate } from "@/lib/campaign-cohorts";
 import type { MetaCampaign } from "@/lib/meta/ads";
 import { Banknote, CircleDollarSign, Download, TrendingUp } from "lucide-react";
 
@@ -73,7 +74,7 @@ const icons = {
   installs: <Download {...iconProps} />,
 };
 
-export function AcquisitionDashboard({ integrations, metrics: rawMetrics, periodLabel, setupError, campaigns = [], metaUnavailable = false }: AcquisitionDashboardProps) {
+export function AcquisitionDashboard({ integrations, metrics: rawMetrics, periodLabel, range, setupError, campaigns = [], metaUnavailable = false }: AcquisitionDashboardProps) {
   const [detailId, setDetailId] = useState<string | null>(null);
   const detailIntegration = integrations.find(i => i.id === detailId);
   const attribution = useMemo(() => campaignAttribution(rawMetrics, integrations), [rawMetrics, integrations]);
@@ -99,8 +100,22 @@ export function AcquisitionDashboard({ integrations, metrics: rawMetrics, period
       day.profit = day.revenue - day.spend;
       days.set(row.date, day);
     }
-    return Array.from(days.values()).sort((a, b) => a.date.localeCompare(b.date));
-  }, [selectedRows]);
+    const present = [...days.keys()].sort();
+    if (present.length === 0) return [];
+
+    // Dia sem linha no banco é dia com zero, não dia inexistente: sem preencher, o
+    // eixo pula datas e a linha de lucro liga pontos não adjacentes.
+    const first = present[0]!;
+    const last = present[present.length - 1]!;
+    const start = range.from && range.from < first ? range.from : first;
+    const end = range.to > last ? range.to : last;
+
+    const filled: { date: string; spend: number; revenue: number; profit: number }[] = [];
+    for (let day = start, guard = 0; day <= end && guard < 400; day = shiftDate(day, 1), guard++) {
+      filled.push(days.get(day) ?? { date: day, spend: 0, revenue: 0, profit: 0 });
+    }
+    return filled;
+  }, [selectedRows, range.from, range.to]);
 
   const campaignRows = useMemo(() => selectedIntegrations.map((integration) => {
     const rows = metrics.filter((row) => row.integrationId === integration.id);
@@ -220,8 +235,15 @@ export function AcquisitionDashboard({ integrations, metrics: rawMetrics, period
           </span>
         </div>
         <div className="h-[240px] min-w-0 w-full sm:h-[260px] md:h-[340px]">
+          {unavailable || chartData.length === 0 ? (
+            <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-white/10 px-6 text-center text-sm text-zinc-500">
+              {unavailable
+                ? "Atribuição indisponível para a seleção — corrija o vínculo ou aguarde a sincronização."
+                : "Sem gasto ou receita registrados neste período."}
+            </div>
+          ) : (
           <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 800, height: 340 }}>
-            <ComposedChart data={unavailable ? [] : chartData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+            <ComposedChart data={chartData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
               <XAxis dataKey="date" stroke="#71717a" fontSize={12} tickFormatter={(value: string) => { const date = new Date(`${value}T12:00:00`); return `${date.getDate()}/${date.getMonth() + 1}`; }} />
               <YAxis stroke="#71717a" fontSize={12} tickFormatter={(value: number) => compactCurrency(value, currencyCode)} width={66} />
@@ -233,9 +255,10 @@ export function AcquisitionDashboard({ integrations, metrics: rawMetrics, period
               <Legend formatter={(value) => value === "spend" ? "Gasto" : value === "revenue" ? "Receita" : "Lucro"} />
               <Bar dataKey="spend" fill="#F87171" fillOpacity={0.72} radius={[4, 4, 0, 0]} maxBarSize={24} />
               <Bar dataKey="revenue" fill="#34D399" fillOpacity={0.72} radius={[4, 4, 0, 0]} maxBarSize={24} />
-              <Line type="monotone" dataKey="profit" stroke="#A78BFA" strokeWidth={2.5} dot={false} />
+              <Line type="linear" dataKey="profit" stroke="#A78BFA" strokeWidth={2.5} dot={false} />
             </ComposedChart>
           </ResponsiveContainer>
+          )}
         </div>
       </Card>
 
