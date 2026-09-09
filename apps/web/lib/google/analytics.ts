@@ -229,6 +229,8 @@ interface GA4AcquisitionConfig extends GA4AcquisitionBaseConfig {
 export interface GA4AcquisitionBreakdown {
   utm: GA4DailyAcquisition[];
   facebookReferral: GA4DailyAcquisition[];
+  /** GA4 omitiu linhas por limite de privacidade: ausência de dia não prova receita zero. */
+  thresholded: boolean;
 }
 
 type GA4FilterExpression = Record<string, unknown>;
@@ -266,7 +268,7 @@ async function fetchGA4AcquisitionForFilters(
   config: GA4AcquisitionBaseConfig,
   acquisitionFilters: GA4FilterExpression[],
   range: { from: string; to: string }
-): Promise<GA4DailyAcquisition[]> {
+): Promise<{ rows: GA4DailyAcquisition[]; thresholded: boolean }> {
   const endpoint = `${DATA_API}/properties/${encodeURIComponent(config.propertyId)}:runReport`;
 
   async function runReport(body: Record<string, unknown>): Promise<GA4ReportResponse> {
@@ -358,7 +360,10 @@ async function fetchGA4AcquisitionForFilters(
       adImpressions: Math.max(standard.adImpressions, custom.impressions),
     });
   }
-  return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+  return {
+    rows: Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date)),
+    thresholded: !!standardReport.metadata?.subjectToThresholding,
+  };
 }
 
 export async function fetchGA4AcquisitionReport(
@@ -368,7 +373,7 @@ export async function fetchGA4AcquisitionReport(
 ): Promise<GA4DailyAcquisition[]> {
   const token = await getGoogleReportingAccessToken(userId);
   if (!token) throw new Error("Conexão Google/AdMob ausente; reconecte em Configurações");
-  return fetchGA4AcquisitionForFilters(token, config, buildUtmAcquisitionFilters(config), range);
+  return (await fetchGA4AcquisitionForFilters(token, config, buildUtmAcquisitionFilters(config), range)).rows;
 }
 
 export async function fetchGA4AcquisitionBreakdown(
@@ -383,5 +388,5 @@ export async function fetchGA4AcquisitionBreakdown(
     fetchGA4AcquisitionForFilters(token, config, buildUtmAcquisitionFilters(config), range),
     fetchGA4AcquisitionForFilters(token, config, buildFacebookReferralFilters(config.streamId), range),
   ]);
-  return { utm, facebookReferral };
+  return { utm: utm.rows, facebookReferral: facebookReferral.rows, thresholded: utm.thresholded || facebookReferral.thresholded };
 }

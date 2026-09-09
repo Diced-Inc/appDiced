@@ -33,4 +33,35 @@ describe("spend is independent from attribution", () => {
     await syncAcquisition("owner");
     expect(mocks.upsert).not.toHaveBeenCalled();
   });
+
+  it("only writes revenue for days GA4 actually reported", async () => {
+    // GA4 respondeu 200 mas só tem linha para um dia do mês: latência de processamento
+    // ou omissão por limite de privacidade. Os outros 29 dias não podem virar zero.
+    mocks.ga4.mockResolvedValue({
+      utm: [{ date: "2026-09-30", installs: 1, adRevenue: 5, purchaseRevenue: 0, totalRevenue: 5, adImpressions: 10 }],
+      facebookReferral: [],
+      thresholded: false,
+    });
+    await syncAcquisition("owner");
+
+    const revenueRows = mocks.upsert.mock.calls[1]![2] as Record<string, unknown>[];
+    expect(revenueRows).toHaveLength(1);
+    expect(revenueRows[0]).toMatchObject({ date: "2026-09-30", attributed_total_revenue: 5 });
+  });
+
+  it("flags days the GA4 privacy threshold hid, without touching revenue columns", async () => {
+    mocks.ga4.mockResolvedValue({
+      utm: [{ date: "2026-09-30", installs: 1, adRevenue: 5, purchaseRevenue: 0, totalRevenue: 5, adImpressions: 10 }],
+      facebookReferral: [],
+      thresholded: true,
+    });
+    await syncAcquisition("owner");
+
+    const flagRows = mocks.upsert.mock.calls[2]![2] as Record<string, unknown>[];
+    expect(flagRows).toHaveLength(30);
+    // o dia reportado não é marcado; os omitidos sim
+    expect(flagRows.find(r => r.date === "2026-09-30")).toMatchObject({ ga4_thresholded: false });
+    expect(flagRows.find(r => r.date === "2026-09-01")).toMatchObject({ ga4_thresholded: true });
+    expect(flagRows[0]).not.toHaveProperty("attributed_total_revenue");
+  });
 });

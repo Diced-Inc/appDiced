@@ -148,7 +148,12 @@ export async function syncAcquisition(
       const utmByDate = combineGA4(analytics.utm);
       const facebookReferralByDate = combineGA4(analytics.facebookReferral);
       const syncedAt = new Date().toISOString();
-      const upserts = dateSequence(range.from, range.to).map((date) => {
+      // Só grava receita nos dias em que o GA4 devolveu linha. Dia ausente pode ser
+      // latência de processamento ou omissão por limite de privacidade — escrever 0 ali
+      // apagaria receita já coletada. O gasto desses dias já foi salvo no upsert acima.
+      const upserts = dateSequence(range.from, range.to)
+        .filter((date) => utmByDate.has(date) || facebookReferralByDate.has(date))
+        .map((date) => {
         const meta = metaByDate.get(date);
         const utm = utmByDate.get(date);
         const facebookReferral = facebookReferralByDate.get(date);
@@ -177,8 +182,23 @@ export async function syncAcquisition(
         };
       });
 
-      await chunkedUpsert(supabase, "marketing_daily_metrics", upserts, "integration_id,date");
+      if (upserts.length > 0) {
+        await chunkedUpsert(supabase, "marketing_daily_metrics", upserts, "integration_id,date");
+      }
       rowCount += upserts.length;
+
+      // Marca os dias sob limite de privacidade do GA4 para o painel não exibir 0 como fato.
+      // Upsert à parte e tolerante: enquanto a migration ga4_thresholded não estiver aplicada,
+      // a coleta principal acima não pode falhar por causa deste sinal.
+      try {
+        await chunkedUpsert(supabase, "marketing_daily_metrics", dateSequence(range.from, range.to).map((date) => ({
+          integration_id: integration.id, user_id: userId, app_id: integration.app_id, date,
+          currency: integration.currency,
+          ga4_thresholded: analytics.thresholded && !utmByDate.has(date) && !facebookReferralByDate.has(date),
+        })), "integration_id,date");
+      } catch {
+        errors.push("Sinal de limite de privacidade do GA4 não gravado; aplique a migration ga4_thresholded.");
+      }
       try { await recordCampaignObservation(userId, integration.id, integration.meta_campaign_id); }
       catch (historyError) { errors.push("Histórico: " + (historyError instanceof Error ? historyError.message : "indisponível")); }
       await supabase
