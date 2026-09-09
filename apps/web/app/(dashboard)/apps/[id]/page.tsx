@@ -7,6 +7,7 @@ import { getAppById } from "@/lib/data";
 import type { AppStatus } from "@/lib/types";
 import { AppIcon } from "@/components/app-icon";
 import { EditAppModal } from "@/components/edit-app-modal";
+import { KpiIcons } from "@/components/kpi-icons";
 
 export const dynamic = "force-dynamic";
 
@@ -68,22 +69,22 @@ export default async function AppDetailPage({
           <KpiCard
             title="Avaliação"
             value={app.rating > 0 ? String(app.rating) : "N/A"}
-            icon={<span className="text-lg">⭐</span>}
+            icon={KpiIcons.rating}
           />
           <KpiCard
             title="Downloads"
             value={app.downloads > 0 ? app.downloads.toLocaleString() : "N/A"}
-            icon={<span className="text-lg">📥</span>}
+            icon={KpiIcons.downloads}
           />
           <KpiCard
             title="Receita"
             value={app.revenue > 0 ? `$${app.revenue.toFixed(2)}` : "N/A"}
-            icon={<span className="text-lg">💰</span>}
+            icon={KpiIcons.revenue}
           />
           <KpiCard
             title="eCPM"
             value={app.ecpm > 0 ? `$${app.ecpm.toFixed(2)}` : "N/A"}
-            icon={<span className="text-lg">📊</span>}
+            icon={KpiIcons.trendingUp}
           />
         </div>
       </div>

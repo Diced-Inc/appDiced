@@ -3,12 +3,16 @@
 import { useState } from "react";
 import type { CountryRevenue } from "@/lib/types";
 
-function countryFlag(code: string): string {
-  return code
-    .toUpperCase()
-    .split("")
-    .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
-    .join("");
+/**
+ * Sem bandeira emoji: o Windows não tem glifo de regional indicator e
+ * renderiza "BR"/"US" em versalete, duplicando o nome do país ao lado.
+ */
+function CountryCode({ code }: { code: string }) {
+  return (
+    <span className="inline-flex h-5 min-w-[2rem] items-center justify-center rounded border border-white/10 bg-white/[0.04] px-1 text-[10px] font-semibold tracking-wide text-zinc-400">
+      {code.toUpperCase()}
+    </span>
+  );
 }
 
 const countryNames: Record<string, string> = {
@@ -112,9 +116,11 @@ export function CountryRevenueTable({ data }: CountryRevenueTableProps) {
                 >
                   <td className="py-2.5 pr-4 text-zinc-500">{i + 1}</td>
                   <td className="py-2.5 pr-4">
-                    <span className="mr-2">{countryFlag(row.countryCode)}</span>
-                    <span className="text-white">
-                      {countryNames[row.countryCode] ?? row.countryCode}
+                    <span className="flex items-center gap-2">
+                      <CountryCode code={row.countryCode} />
+                      <span className="text-white">
+                        {countryNames[row.countryCode] ?? row.countryCode}
+                      </span>
                     </span>
                   </td>
                   <td className="py-2.5 pr-4 text-right font-medium text-emerald-400">

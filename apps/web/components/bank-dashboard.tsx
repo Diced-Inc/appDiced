@@ -5,6 +5,7 @@ import { KpiCard } from "@diced/ui/kpi-card";
 import { Card } from "@diced/ui/card";
 import { BankExpenses } from "@/components/bank-expenses";
 import { Badge } from "@diced/ui/badge";
+import { CircleCheck, Clock, Download, TrendingUp, TriangleAlert } from "lucide-react";
 import type { BankData } from "@/lib/data";
 import type { MonthlyEarning } from "@/lib/types";
 
@@ -33,40 +34,14 @@ const statusBadge: Record<MonthlyEarning["status"], { variant: "success" | "warn
   paid: { variant: "success", label: "Pago" },
 };
 
-const iconProps = {
-  className: "h-5 w-5",
-  fill: "none" as const,
-  viewBox: "0 0 24 24",
-  stroke: "currentColor",
-  strokeWidth: 1.5,
-} as const;
+const iconProps = { className: "h-5 w-5", strokeWidth: 1.75, "aria-hidden": true } as const;
 
 const icons = {
-  receivable: (
-    <svg {...iconProps}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  ),
-  current: (
-    <svg {...iconProps}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
-    </svg>
-  ),
-  received: (
-    <svg {...iconProps}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-    </svg>
-  ),
-  threshold: (
-    <svg {...iconProps}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-    </svg>
-  ),
-  check: (
-    <svg {...iconProps}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  ),
+  receivable: <Clock {...iconProps} />,
+  current: <TrendingUp {...iconProps} />,
+  received: <Download {...iconProps} />,
+  threshold: <TriangleAlert {...iconProps} />,
+  check: <CircleCheck {...iconProps} />,
 };
 
 export function BankDashboard({ initial }: { initial: BankData }) {

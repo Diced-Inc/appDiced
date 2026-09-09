@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { AppStatus, DicedApp } from "@/lib/types";
 import { Badge } from "@diced/ui/badge";
 import { AppIcon } from "@/components/app-icon";
+import { Star } from "lucide-react";
 
 const statusVariant: Record<AppStatus, "success" | "warning" | "error" | "info" | "default"> = {
   published: "success",
@@ -32,6 +33,15 @@ const filters: { label: string; value: AppStatus | "all" }[] = [
 
 interface AppsTableProps {
   apps: DicedApp[];
+}
+
+function Rating({ value }: { value: number }) {
+  return (
+    <span className="inline-flex items-center gap-1 tabular-nums">
+      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" strokeWidth={1.75} aria-hidden="true" />
+      {value.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+    </span>
+  );
 }
 
 export function AppsTable({ apps }: AppsTableProps) {
@@ -82,7 +92,7 @@ export function AppsTable({ apps }: AppsTableProps) {
               <div>
                 <p className="text-xs text-zinc-500">Avaliação</p>
                 <p className="text-sm font-medium text-zinc-300">
-                  {app.rating > 0 ? `${app.rating} ⭐` : "—"}
+                  {app.rating > 0 ? <Rating value={app.rating} /> : "—"}
                 </p>
               </div>
               <div>
@@ -132,7 +142,7 @@ export function AppsTable({ apps }: AppsTableProps) {
                   </Badge>
                 </td>
                 <td className="px-4 py-3 text-right text-zinc-300">
-                  {app.rating > 0 ? `${app.rating} ⭐` : "—"}
+                  {app.rating > 0 ? <Rating value={app.rating} /> : "—"}
                 </td>
                 <td className="px-4 py-3 text-right text-zinc-300">
                   {app.downloads > 0 ? app.downloads.toLocaleString() : "—"}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@diced/ui/card";
+import { ArrowRightLeft, Megaphone, Plus, ReceiptText, Scale, TrendingDown, TrendingUp, TriangleAlert, Wallet } from "lucide-react";
 import { toBrazilDateStr } from "@/lib/date";
 import type { Expense, MediaSpend } from "@/lib/bank-expenses";
 
@@ -46,61 +47,18 @@ const categoryStyle: Record<string, string> = {
   other: "border-zinc-500/20 bg-zinc-500/10 text-zinc-400",
 };
 
-const svg = {
-  className: "h-4 w-4",
-  fill: "none" as const,
-  viewBox: "0 0 24 24",
-  stroke: "currentColor",
-  strokeWidth: 1.5,
-  "aria-hidden": true,
-} as const;
+const iconProps = { className: "h-4 w-4", strokeWidth: 1.75, "aria-hidden": true } as const;
 
 const icons = {
-  wallet: (
-    <svg {...svg} className="h-5 w-5">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
-    </svg>
-  ),
-  revenue: (
-    <svg {...svg}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
-    </svg>
-  ),
-  spend: (
-    <svg {...svg}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6L9 12.75l4.286-4.286a11.948 11.948 0 014.306 6.43l.776 2.898m0 0l3.182-5.511m-3.182 5.51l-5.511-3.181" />
-    </svg>
-  ),
-  balance: (
-    <svg {...svg}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" />
-    </svg>
-  ),
-  exchange: (
-    <svg {...svg}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
-    </svg>
-  ),
-  media: (
-    <svg {...svg}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 01-1.44-4.282m3.102.069a18.03 18.03 0 01-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 018.835 2.535M10.34 6.66a23.847 23.847 0 008.835-2.535m0 0A23.74 23.74 0 0018.795 3m.38 1.125a23.91 23.91 0 011.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 001.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 010 3.46" />
-    </svg>
-  ),
-  receipt: (
-    <svg {...svg}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185zM9.75 9h.008v.008H9.75V9zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 6h.008v.008h-.008V15zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-    </svg>
-  ),
-  plus: (
-    <svg {...svg}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-    </svg>
-  ),
-  alert: (
-    <svg {...svg}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-    </svg>
-  ),
+  wallet: <Wallet className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />,
+  revenue: <TrendingUp {...iconProps} />,
+  spend: <TrendingDown {...iconProps} />,
+  balance: <Scale {...iconProps} />,
+  exchange: <ArrowRightLeft {...iconProps} />,
+  media: <Megaphone {...iconProps} />,
+  receipt: <ReceiptText {...iconProps} />,
+  plus: <Plus {...iconProps} />,
+  alert: <TriangleAlert {...iconProps} />,
 };
 
 const tones = {

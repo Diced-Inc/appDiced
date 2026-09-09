@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { RefreshCw } from "lucide-react";
 
 interface SyncButtonProps {
   provider: string;
@@ -40,9 +41,11 @@ export function SyncButton({ provider }: SyncButtonProps) {
             : "bg-violet-500/10 text-violet-400 hover:bg-violet-500/20"
       }`}
     >
-      <svg className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden="true">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992V4.356m-1.094 5.065A8.25 8.25 0 1 0 21.75 12M2.985 14.652H7.98v4.992m-3.901-5.065A8.25 8.25 0 0 0 18.75 12" />
-      </svg>
+      <RefreshCw
+        className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`}
+        strokeWidth={1.75}
+        aria-hidden="true"
+      />
       <span className="hidden sm:inline">
         {syncing ? "Sincronizando..." : result === "success" ? "Pronto!" : result === "error" ? "Falhou" : "Sincronizar"}
       </span>
