@@ -7,7 +7,7 @@ export function CampaignPeriodSelector() {
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams();
-  const current = search.get("period") || "7d";
+  const current = search.get("period") || "month";
   function select(period: string, from?: string, to?: string) {
     const params = new URLSearchParams(search.toString());
     params.set("period", period);

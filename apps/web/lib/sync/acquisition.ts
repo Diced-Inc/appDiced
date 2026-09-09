@@ -4,6 +4,7 @@ import { fetchGA4AcquisitionBreakdown, type GA4DailyAcquisition } from "@/lib/go
 import { fetchMetaDailyInsights, type MetaDailyInsight } from "@/lib/meta/ads";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { chunkedUpsert } from "@/lib/sync/persist";
+import { acquisitionSyncRange } from "@/lib/sync/acquisition-range";
 
 interface IntegrationRow {
   id: string;
@@ -114,16 +115,25 @@ export async function syncAcquisition(
   if (integrations.length === 0) return { skipped: true, reason: "not_configured" };
 
   const today = toBrazilDateStr();
-  const lookbackDays = Math.min(Math.max(Math.floor(options.lookbackDays ?? 14), 1), 366);
-  const range = { from: shiftDays(today, -(lookbackDays - 1)), to: today };
+  const range = acquisitionSyncRange(today, options.lookbackDays);
   const errors: string[] = [];
   let rowCount = 0;
 
   for (const integration of integrations) {
     try {
-      const [metaRows, analytics] = await Promise.all([
-        fetchMetaDailyInsights(userId, integration.meta_campaign_id, range),
-        fetchGA4AcquisitionBreakdown(
+      const metaRows = await fetchMetaDailyInsights(userId, integration.meta_campaign_id, range);
+      const metaByDate = combineMeta(metaRows);
+      // Persist actual spend before GA4: an attribution failure must not lose bank expenses.
+      // Partial upsert preserves previously collected revenue; the integration error signals stale GA4.
+      await chunkedUpsert(supabase, "marketing_daily_metrics", dateSequence(range.from, range.to).map(date => {
+        const meta = metaByDate.get(date);
+        return { integration_id: integration.id, user_id: userId, app_id: integration.app_id,
+          date, currency: integration.currency, spend: round4(meta?.spend ?? 0),
+          meta_impressions: meta?.impressions ?? 0, meta_reach: meta?.reach ?? 0,
+          meta_clicks: meta?.clicks ?? 0, meta_installs: meta?.installs ?? 0,
+          synced_at: new Date().toISOString() };
+      }), "integration_id,date");
+      const analytics = await fetchGA4AcquisitionBreakdown(
           userId,
           {
             propertyId: integration.ga4_property_id,
@@ -134,10 +144,7 @@ export async function syncAcquisition(
             currency: integration.currency,
           },
           range
-        ),
-      ]);
-
-      const metaByDate = combineMeta(metaRows);
+        );
       const utmByDate = combineGA4(analytics.utm);
       const facebookReferralByDate = combineGA4(analytics.facebookReferral);
       const syncedAt = new Date().toISOString();

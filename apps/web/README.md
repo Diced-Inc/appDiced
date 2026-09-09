@@ -62,3 +62,8 @@ Env: ver `.env.example`. `CRON_SECRET` protege os endpoints de cron.
 4. Depois do deploy, abra Configurações, reconecte o Google para conceder `analytics.readonly`, conecte a Meta e vincule campanha + fluxo GA4 + UTMs.
 
 O relatório usa `firstUserSource`, `firstUserMedium` e `firstUserCampaignName`. Portanto, a UTM da configuração deve ser exatamente a mesma enviada no Play Install Referrer do anúncio.
+
+## Persistência do investimento (08/09/2026)
+
+Campanhas abre no mês corrente. Toda sincronização de aquisição cobre no mínimo o início do mês e a janela solicitada (14 dias normalmente, 90 no cron diário). Os registros anteriores permanecem em marketing_daily_metrics; o filtro de exibição não limita retenção. O gasto Meta é salvo antes de consultar GA4 e usa upsert por integração/data. Banco lê esses registros do mês e deduplica campanha/conta/data/moeda; não criar despesas manuais espelhando os mesmos gastos. O escopo são as campanhas vinculadas. Testes cobrem o mês completo, virada de ano e persistência diante de falha GA4/Meta.
+

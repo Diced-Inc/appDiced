@@ -142,7 +142,7 @@ export function AcquisitionSettings({
               <p className="mt-0.5 text-xs text-zinc-500">Gasto, cliques e entrega</p>
             </div>
             {metaConnected ? (
-              <span className="text-xs font-medium text-emerald-400">Conectado</span>
+              <div className="text-right"><span className="text-xs font-medium text-emerald-400">Conectado</span><a href="/api/auth/meta" className="mt-1 block text-xs text-violet-300 hover:underline">Autorizar pausa e reativação</a></div>
             ) : metaConfigured ? (
               <a href="/api/auth/meta" className="cursor-pointer rounded-lg bg-blue-500/15 px-3 py-1.5 text-xs font-medium text-blue-300 transition-colors hover:bg-blue-500/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400">
                 Conectar Meta

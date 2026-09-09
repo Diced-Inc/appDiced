@@ -17,6 +17,7 @@ export function campaignPeriod(params: { period?: string; from?: string; to?: st
   }
   if (params.period === "today") return { range: { from: today, to: today }, label: "Hoje" };
   if (params.period === "yesterday") return { range: { from: day(-1), to: day(-1) }, label: "Ontem" };
+  if (!params.period) return { range: resolvePeriod("month", today), label: "Este mês" };
   if (isPeriodKey(params.period)) return { range: resolvePeriod(params.period, today), label: PERIOD_LABELS[params.period] };
   return { range: { from: day(-6), to: today }, label: "Últimos 7 dias" };
 }

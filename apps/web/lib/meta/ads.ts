@@ -127,10 +127,35 @@ export function getMetaAuthUrl(state: string): string | null {
     client_id: env.appId,
     redirect_uri: `${env.appUrl}/api/auth/meta/callback`,
     response_type: "code",
-    scope: "ads_read",
+    scope: "ads_read,ads_management",
     state,
   });
   return `${FACEBOOK_BASE}/dialog/oauth?${params}`;
+}
+
+export async function setMetaCampaignStatus(userId: string, accountId: string, campaignId: string, status: "ACTIVE" | "PAUSED", expectedStatus: string) {
+  if (!/^\d+$/.test(campaignId) || !/^(act_)?\d+$/.test(accountId) || !["ACTIVE", "PAUSED"].includes(status)) throw new Error("Campanha ou status inválido.");
+  const token = await getMetaAccessToken(userId);
+  const env = requireMetaEnv();
+  if (!token || !env) throw new Error("Reconecte a Meta em Configurações para gerenciar campanhas.");
+  const read = () => graphRequest<{ id: string; account_id: string; status: string; effective_status: string }>(campaignId, token, { fields: "id,account_id,status,effective_status" });
+  const before = await read();
+  if (normalizeAccountId(before.account_id) !== normalizeAccountId(accountId)) throw new Error("A campanha não pertence à conta vinculada.");
+  if (!["ACTIVE", "PAUSED"].includes(before.status)) throw new Error("Esta campanha não pode ser pausada ou reativada.");
+  if (before.status === status) return before;
+  if (before.status !== expectedStatus) throw new Error("O status mudou na Meta. Atualize a página antes de tentar novamente.");
+  const permissions = await graphRequest<{ data: { permission: string; status: string }[] }>("me/permissions", token);
+  if (!permissions.data.some(p => p.permission === "ads_management" && p.status === "granted")) throw new Error("Reconecte a Meta em Configurações e autorize o gerenciamento de anúncios.");
+  const response = await fetch(`${GRAPH_BASE}/${campaignId}`, {
+    method: "POST", cache: "no-store", signal: AbortSignal.timeout(30000),
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ status, access_token: token, appsecret_proof: appSecretProof(token, env.appSecret) }),
+  });
+  const result = await response.json() as { success?: boolean } & MetaErrorResponse;
+  if (!response.ok || result.error || !result.success) throw new Error(result.error?.message || "A Meta não confirmou a alteração. Atualize o status antes de tentar novamente.");
+  const after = await read();
+  if (after.status !== status) throw new Error("Pedido enviado, mas o status ainda não foi confirmado. Atualize a página.");
+  return after;
 }
 
 export async function exchangeMetaCode(code: string): Promise<{
