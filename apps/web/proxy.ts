@@ -7,6 +7,9 @@ const isPublicRoute = createRouteMatcher([
   "/api/cron(.*)",
   "/api/widget(.*)",
   "/api/sync/admob(.*)",
+  // GET valida CRON_SECRET no próprio handler; POST continua exigindo sessão Clerk lá.
+  // Sem isto o Clerk devolve 307 e a recoleta administrativa fica inalcançável.
+  "/api/sync/acquisition(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
