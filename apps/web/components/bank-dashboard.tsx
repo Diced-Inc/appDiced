@@ -57,6 +57,16 @@ const icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
     </svg>
   ),
+  threshold: (
+    <svg {...iconProps}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+    </svg>
+  ),
+  check: (
+    <svg {...iconProps}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
 };
 
 export function BankDashboard({ initial }: { initial: BankData }) {
@@ -158,15 +168,40 @@ export function BankDashboard({ initial }: { initial: BankData }) {
       {/* Threshold */}
       {receivable > 0 && (
         <div
-          className={`rounded-xl border px-4 py-3 text-sm ${
+          className={`flex items-start gap-3 rounded-xl border px-4 py-3.5 text-sm ${
             thresholdMissing > 0
-              ? "border-amber-500/20 bg-amber-500/5 text-amber-300"
-              : "border-emerald-500/20 bg-emerald-500/5 text-emerald-300"
+              ? "border-amber-500/20 bg-amber-500/[0.06] text-amber-200"
+              : "border-emerald-500/20 bg-emerald-500/[0.06] text-emerald-200"
           }`}
         >
-          {thresholdMissing > 0
-            ? `Faltam ${fmt(thresholdMissing)} pro threshold de ${fmt(ADMOB_THRESHOLD)} do AdMob — o pagamento só sai quando o saldo fechado atinge o limite.`
-            : `Threshold de ${fmt(ADMOB_THRESHOLD)} atingido — pagamento previsto por volta do dia 21.`}
+          <span className={`mt-0.5 shrink-0 ${thresholdMissing > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+            {thresholdMissing > 0 ? icons.threshold : icons.check}
+          </span>
+          <div className="min-w-0 flex-1">
+            {thresholdMissing > 0 ? (
+              <>
+                <p className="font-medium text-white">
+                  Faltam {fmt(thresholdMissing)} pro threshold de {fmt(ADMOB_THRESHOLD)} do AdMob
+                </p>
+                <p className="mt-0.5 text-xs text-amber-200/70">
+                  O pagamento só sai quando o saldo fechado atinge o limite.
+                </p>
+                <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-white/5">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400 transition-[width] duration-500"
+                    style={{ width: `${Math.min(100, (receivable / ADMOB_THRESHOLD) * 100)}%` }}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="font-medium text-white">Threshold de {fmt(ADMOB_THRESHOLD)} atingido</p>
+                <p className="mt-0.5 text-xs text-emerald-200/70">
+                  Pagamento previsto por volta do dia 21.
+                </p>
+              </>
+            )}
+          </div>
         </div>
       )}
 

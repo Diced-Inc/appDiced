@@ -1,62 +1,703 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { Card } from "@diced/ui/card";
 import { toBrazilDateStr } from "@/lib/date";
 import type { Expense, MediaSpend } from "@/lib/bank-expenses";
 
-interface Report { rateSource: "manual" | "frankfurter" | null; rateDate: string | null; rateError: string | null; grossUsd: number; media: MediaSpend[]; expenses: Expense[]; usdBrl: number | null; totals: Record<string, number>; expensesBrl: number | null; netBrl: number | null; unknown: boolean; mediaIncomplete: boolean; monitoredCampaigns: number }
-const fmt = (amount: number | null, currency = "BRL") => amount === null ? "—" : new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(amount);
-const field = "rounded border border-white/10 bg-zinc-900 p-2 text-sm text-white";
-const categories: Record<string, string> = { software: "Software e assinaturas", services: "Serviços", taxes: "Taxas e impostos", other: "Outros" };
+interface Report {
+  rateSource: "manual" | "frankfurter" | null;
+  rateDate: string | null;
+  rateError: string | null;
+  grossUsd: number;
+  media: MediaSpend[];
+  expenses: Expense[];
+  usdBrl: number | null;
+  totals: Record<string, number>;
+  expensesBrl: number | null;
+  netBrl: number | null;
+  unknown: boolean;
+  mediaIncomplete: boolean;
+  monitoredCampaigns: number;
+}
+
+const fmt = (amount: number | null, currency = "BRL") =>
+  amount === null
+    ? "—"
+    : new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(amount);
+
+const field =
+  "rounded-lg border border-white/10 bg-surface px-2.5 py-1.5 text-sm text-white outline-none transition-colors focus:border-violet-500/70 focus:ring-1 focus:ring-violet-500/25";
+
+const ghostButton =
+  "rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-white/20 hover:bg-white/[0.07] disabled:opacity-50";
+
+const categories: Record<string, string> = {
+  software: "Software e assinaturas",
+  services: "Serviços",
+  taxes: "Taxas e impostos",
+  other: "Outros",
+};
+
+const categoryStyle: Record<string, string> = {
+  software: "border-violet-500/20 bg-violet-500/10 text-violet-300",
+  services: "border-blue-500/20 bg-blue-500/10 text-blue-300",
+  taxes: "border-amber-500/20 bg-amber-500/10 text-amber-300",
+  other: "border-zinc-500/20 bg-zinc-500/10 text-zinc-400",
+};
+
+const svg = {
+  className: "h-4 w-4",
+  fill: "none" as const,
+  viewBox: "0 0 24 24",
+  stroke: "currentColor",
+  strokeWidth: 1.5,
+  "aria-hidden": true,
+} as const;
+
+const icons = {
+  wallet: (
+    <svg {...svg} className="h-5 w-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+    </svg>
+  ),
+  revenue: (
+    <svg {...svg}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
+    </svg>
+  ),
+  spend: (
+    <svg {...svg}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6L9 12.75l4.286-4.286a11.948 11.948 0 014.306 6.43l.776 2.898m0 0l3.182-5.511m-3.182 5.51l-5.511-3.181" />
+    </svg>
+  ),
+  balance: (
+    <svg {...svg}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" />
+    </svg>
+  ),
+  exchange: (
+    <svg {...svg}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+    </svg>
+  ),
+  media: (
+    <svg {...svg}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 01-1.44-4.282m3.102.069a18.03 18.03 0 01-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 018.835 2.535M10.34 6.66a23.847 23.847 0 008.835-2.535m0 0A23.74 23.74 0 0018.795 3m.38 1.125a23.91 23.91 0 011.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 001.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 010 3.46" />
+    </svg>
+  ),
+  receipt: (
+    <svg {...svg}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185zM9.75 9h.008v.008H9.75V9zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 6h.008v.008h-.008V15zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+    </svg>
+  ),
+  plus: (
+    <svg {...svg}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+    </svg>
+  ),
+  alert: (
+    <svg {...svg}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+    </svg>
+  ),
+};
+
+const tones = {
+  emerald: {
+    chip: "bg-emerald-500/10 text-emerald-400",
+    value: "text-emerald-300",
+    glow: "from-emerald-500/[0.08]",
+    hover: "hover:border-emerald-500/25",
+  },
+  rose: {
+    chip: "bg-rose-500/10 text-rose-400",
+    value: "text-rose-300",
+    glow: "from-rose-500/[0.08]",
+    hover: "hover:border-rose-500/25",
+  },
+  violet: {
+    chip: "bg-violet-500/10 text-violet-400",
+    value: "text-white",
+    glow: "from-violet-500/[0.08]",
+    hover: "hover:border-violet-500/25",
+  },
+  zinc: {
+    chip: "bg-zinc-500/10 text-zinc-400",
+    value: "text-zinc-300",
+    glow: "from-white/[0.04]",
+    hover: "hover:border-white/15",
+  },
+};
+
+function StatTile({
+  tone,
+  icon,
+  label,
+  value,
+  hint,
+}: {
+  tone: keyof typeof tones;
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  hint?: string | null;
+}) {
+  const t = tones[tone];
+  return (
+    <div
+      className={`relative overflow-hidden rounded-xl border border-white/5 bg-white/[0.02] p-4 transition-colors ${t.hover}`}
+    >
+      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${t.glow} to-transparent`} />
+      <div className="relative">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">{label}</p>
+          <span className={`shrink-0 rounded-lg p-1.5 ${t.chip}`}>{icon}</span>
+        </div>
+        <p
+          className={`mt-3 font-heading text-2xl font-bold leading-none tracking-tight tabular-nums ${t.value}`}
+        >
+          {value}
+        </p>
+        <p className="mt-1.5 min-h-4 text-xs text-zinc-500">{hint ?? ""}</p>
+      </div>
+    </div>
+  );
+}
+
+function SectionTitle({
+  tone,
+  icon,
+  title,
+  hint,
+  total,
+}: {
+  tone: keyof typeof tones;
+  icon: React.ReactNode;
+  title: string;
+  hint?: string;
+  total?: string | null;
+}) {
+  return (
+    <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+      <div className="flex items-start gap-2.5">
+        <span className={`mt-0.5 shrink-0 rounded-lg p-1.5 ${tones[tone].chip}`}>{icon}</span>
+        <div>
+          <h3 className="font-heading text-sm font-semibold text-white">{title}</h3>
+          {hint && <p className="mt-0.5 max-w-xl text-xs leading-relaxed text-zinc-500">{hint}</p>}
+        </div>
+      </div>
+      {total && (
+        <span className="shrink-0 rounded-lg bg-white/[0.04] px-2.5 py-1 text-xs font-medium tabular-nums text-zinc-300">
+          {total}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function Alert({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-3.5 py-3 text-sm text-amber-200"
+    >
+      <span className="mt-0.5 shrink-0 text-amber-400">{icons.alert}</span>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+function Skeleton() {
+  return (
+    <div className="mt-4 animate-pulse space-y-4" role="status" aria-label="Carregando gastos">
+      <div className="grid gap-3 sm:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-[104px] rounded-xl border border-white/5 bg-white/[0.03]" />
+        ))}
+      </div>
+      <div className="h-2 rounded-full bg-white/[0.04]" />
+      <div className="h-16 rounded-xl border border-white/5 bg-white/[0.03]" />
+      <div className="space-y-2">
+        <div className="h-10 rounded-lg bg-white/[0.03]" />
+        <div className="h-10 rounded-lg bg-white/[0.03]" />
+      </div>
+    </div>
+  );
+}
+
+function totalsLabel(totals: Record<string, number>) {
+  const parts = Object.entries(totals)
+    .filter(([, amount]) => amount !== 0)
+    .map(([currency, amount]) => fmt(amount, currency));
+  return parts.length ? parts.join(" · ") : null;
+}
 
 export function BankExpenses() {
   const [month, setMonth] = useState(toBrazilDateStr().slice(0, 7));
   const [revision, setRevision] = useState(0);
-  const [state, setState] = useState<{ data: Report | null; error: string | null; loading: boolean }>({ data: null, error: null, loading: true });
+  const [state, setState] = useState<{ data: Report | null; error: string | null; loading: boolean }>({
+    data: null,
+    error: null,
+    loading: true,
+  });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`/api/bank/expenses?month=${encodeURIComponent(month)}`, { signal: controller.signal }).then(async response => {
-      const data = await response.json(); if (!response.ok) throw new Error(data.error || "Despesas indisponíveis.");
-      if (!controller.signal.aborted) setState({ data, error: null, loading: false });
-    }).catch(error => { if (!controller.signal.aborted) setState({ data: null, error: error.message, loading: false }); });
+    fetch(`/api/bank/expenses?month=${encodeURIComponent(month)}`, { signal: controller.signal })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Despesas indisponíveis.");
+        if (!controller.signal.aborted) setState({ data, error: null, loading: false });
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) setState({ data: null, error: error.message, loading: false });
+      });
     return () => controller.abort();
   }, [month, revision]);
+
   async function save(body: Record<string, unknown>, form?: HTMLFormElement) {
-    setSaving(true); setMessage(null);
-    try { const response = await fetch("/api/bank/expenses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || "Falha ao salvar."); if (form && !body.action) form.reset(); setMessage("Salvo."); setRevision(n => n + 1); }
-    catch (error) { setMessage(error instanceof Error ? error.message : "Falha ao salvar."); }
-    finally { setSaving(false); }
+    setSaving(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/bank/expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Falha ao salvar.");
+      if (form && !body.action) form.reset();
+      setMessage("Salvo.");
+      setRevision((n) => n + 1);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Falha ao salvar.");
+    } finally {
+      setSaving(false);
+    }
   }
+
   const data = state.data;
-  return <Card>
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">Gastos e resultado do mês</h2><p className="mt-1 text-sm text-zinc-400">Receita gerada menos mídia e despesas registradas. Não é o saldo da conta bancária.</p></div><label className="text-sm text-zinc-400">Mês <input aria-label="Mês das despesas" type="month" value={month} max={toBrazilDateStr().slice(0, 7)} className={field} onChange={event => { setMonth(event.target.value); setState({ data: null, error: null, loading: true }); }} /></label></div>
-    {state.loading && <p role="status" className="py-4 text-zinc-400">Carregando gastos…</p>}
-    {state.error && <p role="alert" className="my-3 text-sm text-amber-300">{state.error}</p>}
-    {data && <div className="mt-4 space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3"><div className="rounded bg-white/5 p-4"><p className="text-xs text-zinc-400">Receita AdMob gerada</p><p className="mt-2 text-xl">{fmt(data.grossUsd, "USD")}</p></div><div className="rounded bg-white/5 p-4"><p className="text-xs text-zinc-400">Gastos totais convertidos</p><p className="mt-2 text-xl">{fmt(data.expensesBrl)}</p></div><div className="rounded bg-white/5 p-4"><p className="text-xs text-zinc-400">Saldo após gastos registrados</p><p className={`mt-2 text-xl ${data.netBrl !== null && data.netBrl < 0 ? "text-red-300" : "text-zinc-100"}`}>{data.mediaIncomplete ? "—" : fmt(data.netBrl)}</p></div></div>
-      <p className="text-sm text-zinc-400">Gastos por moeda: {Object.entries(data.totals).map(([currency, amount]) => fmt(amount, currency)).join(" · ") || "Nenhum gasto registrado"}.</p>
-      {(data.mediaIncomplete || data.unknown) && <p className="text-sm text-amber-300">{data.mediaIncomplete ? "Há campanhas sem sincronização válida; o resultado está incompleto." : "Há moeda sem conversão configurada; o saldo está indisponível."}</p>}
-      <div className="space-y-2 rounded border border-white/10 p-3">
-        <p className="text-sm">{data.rateSource === "manual" ? "Cotação manual do mês" : "Cotação automática USD → BRL"}: <strong>{data.usdBrl === null ? "Indisponível" : `US$ 1 = R$ ${data.usdBrl.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 6 })}`}</strong></p>
-        {data.rateSource === "frankfurter" && <p className="text-xs text-zinc-400">Fonte: <a href="https://frankfurter.dev/v1/" target="_blank" rel="noreferrer" className="text-violet-400 underline">Frankfurter</a> · Data da cotação: {data.rateDate}. {month === toBrazilDateStr().slice(0, 7) ? "Última cotação publicada; atualização a cada hora ao consultar." : "Referência do último dia útil disponível até o fechamento do mês."} Valor de referência para planejamento.</p>}
-        {data.rateError && <p role="alert" className="text-sm text-amber-300">{data.rateError} <button className={field} onClick={() => setRevision(n => n + 1)}>Tentar novamente</button></p>}
-        <details><summary className="cursor-pointer text-sm text-zinc-400">Ajustar cotação manualmente</summary>
-      <form key={`${month}:${data.usdBrl}`} className="flex flex-wrap items-end gap-2 rounded border border-white/10 p-3" onSubmit={event => { event.preventDefault(); const form = new FormData(event.currentTarget); void save({ action: "rate", month, usdBrl: Number(form.get("rate")) }); }}><label className="text-sm text-zinc-400">Cotação de referência do mês: US$1 em R$<input required type="number" min="0.000001" max="999" step="0.000001" name="rate" defaultValue={data.usdBrl || ""} className={`ml-2 ${field}`} /></label><button disabled={saving} className={field}>Salvar cotação manual</button><p className="w-full text-xs text-zinc-500">Ao salvar, esta cotação fica fixa para o mês e tem prioridade sobre a consulta automática.</p></form>
-        </details>
+  const isCurrentMonth = month === toBrazilDateStr().slice(0, 7);
+
+  const grossBrl = data && data.usdBrl !== null ? data.grossUsd * data.usdBrl : null;
+  const spendPct =
+    grossBrl !== null && grossBrl > 0 && data?.expensesBrl !== null && data?.expensesBrl !== undefined
+      ? Math.min(100, Math.max(0, (data.expensesBrl / grossBrl) * 100))
+      : null;
+  const marginPct =
+    grossBrl !== null && grossBrl > 0 && data?.netBrl !== null && data?.netBrl !== undefined && !data.mediaIncomplete
+      ? (data.netBrl / grossBrl) * 100
+      : null;
+  const negative = data?.netBrl !== null && data?.netBrl !== undefined && data.netBrl < 0;
+
+  const mediaTotals: Record<string, number> = {};
+  for (const row of data?.media ?? []) mediaTotals[row.currency] = (mediaTotals[row.currency] || 0) + row.spend;
+  const mediaMax: Record<string, number> = {};
+  for (const row of data?.media ?? [])
+    mediaMax[row.currency] = Math.max(mediaMax[row.currency] || 0, Math.abs(row.spend));
+
+  const manualTotals: Record<string, number> = {};
+  for (const row of data?.expenses ?? [])
+    if (!row.voided_at) manualTotals[row.currency] = (manualTotals[row.currency] || 0) + Number(row.amount);
+
+  return (
+    <Card>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="shrink-0 rounded-xl bg-violet-500/10 p-2.5 text-violet-400">{icons.wallet}</span>
+          <div>
+            <h2 className="font-heading text-base font-semibold text-white md:text-lg">
+              Gastos e resultado do mês
+            </h2>
+            <p className="mt-1 max-w-xl text-sm leading-relaxed text-zinc-400">
+              Receita gerada menos mídia e despesas registradas.{" "}
+              <span className="text-zinc-500">Não é o saldo da conta bancária.</span>
+            </p>
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+          Mês
+          <input
+            aria-label="Mês das despesas"
+            type="month"
+            value={month}
+            max={toBrazilDateStr().slice(0, 7)}
+            className={`${field} [color-scheme:dark]`}
+            onChange={(event) => {
+              setMonth(event.target.value);
+              setState({ data: null, error: null, loading: true });
+            }}
+          />
+        </label>
       </div>
-      <div><h3 className="mb-2 font-medium">Mídia importada automaticamente</h3><p className="mb-2 text-xs text-zinc-400">Somente as {data.monitoredCampaigns} campanhas vinculadas no painel. Não lance esses mesmos gastos como despesas manuais. Campanhas fora do painel não estão incluídas.</p>{data.media.length ? data.media.map((row, index) => <div key={`${row.campaign}:${row.currency}:${index}`} className="flex justify-between gap-3 border-b border-white/5 py-2 text-sm"><span>{row.campaign}</span><span>{fmt(row.spend, row.currency)}</span></div>) : <p className="text-sm text-zinc-500">Nenhum gasto de mídia importado neste mês.</p>}</div>
-      <details className="rounded border border-white/10 p-3"><summary className="cursor-pointer font-medium">Registrar outra despesa</summary><form className="mt-3 grid gap-3 sm:grid-cols-2" onSubmit={event => { event.preventDefault(); const form = event.currentTarget; const values = new FormData(form); void save(Object.fromEntries(values), form); }}>
-        <label className="text-xs text-zinc-400">Descrição<input required maxLength={200} name="description" className={`mt-1 block w-full ${field}`} placeholder="Ex.: assinatura de ferramenta" /></label>
-        <label className="text-xs text-zinc-400">Data<input required type="date" name="date" defaultValue={month === toBrazilDateStr().slice(0, 7) ? toBrazilDateStr() : `${month}-01`} max={toBrazilDateStr()} className={`mt-1 block w-full ${field}`} /></label>
-        <label className="text-xs text-zinc-400">Valor<input required type="number" min="0.01" step="0.01" name="amount" className={`mt-1 block w-full ${field}`} /></label>
-        <label className="text-xs text-zinc-400">Moeda<select name="currency" className={`mt-1 block w-full ${field}`}><option>BRL</option><option>USD</option></select></label>
-        <label className="text-xs text-zinc-400">Categoria<select name="category" className={`mt-1 block w-full ${field}`}>{Object.entries(categories).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-        <button disabled={saving} className="self-end rounded bg-violet-600 px-3 py-2 text-sm">Salvar despesa</button>
-      </form></details>
-      {message && <p role="status" className="text-sm text-violet-300">{message}</p>}
-      <div><h3 className="mb-2 font-medium">Despesas manuais</h3>{data.expenses.length === 0 && <p className="text-sm text-zinc-500">Nenhuma despesa manual neste mês.</p>}{data.expenses.map(expense => <div key={expense.id} className={`flex flex-wrap items-center justify-between gap-2 border-b border-white/5 py-3 text-sm ${expense.voided_at ? "text-zinc-500" : "text-zinc-200"}`}><div><p>{expense.description}{expense.voided_at ? " · Cancelada" : ""}</p><p className="text-xs text-zinc-500">{expense.occurred_on} · {categories[expense.category]}</p></div><div className="flex items-center gap-3"><span>{fmt(expense.amount, expense.currency)}</span><button disabled={saving} className="text-xs text-violet-400" onClick={() => void save({ action: expense.voided_at ? "restore" : "void", id: expense.id })}>{expense.voided_at ? "Restaurar" : "Cancelar lançamento"}</button></div></div>)}</div>
-    </div>}
-  </Card>;
+
+      {state.loading && <Skeleton />}
+      {state.error && (
+        <div className="mt-4">
+          <Alert>{state.error}</Alert>
+        </div>
+      )}
+
+      {data && (
+        <div className="mt-5 space-y-5">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <StatTile
+              tone="emerald"
+              icon={icons.revenue}
+              label="Receita AdMob gerada"
+              value={fmt(data.grossUsd, "USD")}
+              hint={grossBrl !== null ? `≈ ${fmt(grossBrl)}` : "conversão indisponível"}
+            />
+            <StatTile
+              tone="rose"
+              icon={icons.spend}
+              label="Gastos totais convertidos"
+              value={fmt(data.expensesBrl)}
+              hint={totalsLabel(data.totals) ? `por moeda: ${totalsLabel(data.totals)}` : "nenhum gasto registrado"}
+            />
+            <StatTile
+              tone={data.mediaIncomplete ? "zinc" : negative ? "rose" : "violet"}
+              icon={icons.balance}
+              label="Saldo após gastos registrados"
+              value={data.mediaIncomplete ? "—" : fmt(data.netBrl)}
+              hint={
+                marginPct !== null
+                  ? `margem de ${marginPct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% sobre a receita`
+                  : "aguardando dados completos"
+              }
+            />
+          </div>
+
+          {spendPct !== null && !data.mediaIncomplete && (
+            <div>
+              <div className="flex h-2 w-full overflow-hidden rounded-full bg-white/5">
+                <div
+                  className="bg-gradient-to-r from-rose-500 to-rose-400 transition-[width] duration-500"
+                  style={{ width: `${spendPct}%` }}
+                />
+                <div className="flex-1 bg-gradient-to-r from-emerald-500/60 to-emerald-400/60" />
+              </div>
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                  Gastos consomem {spendPct.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}% da receita
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  {negative ? "Resultado negativo no mês" : `Sobram ${(100 - spendPct).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%`}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {(data.mediaIncomplete || data.unknown) && (
+            <Alert>
+              {data.mediaIncomplete
+                ? "Há campanhas sem sincronização válida; o resultado está incompleto."
+                : "Há moeda sem conversão configurada; o saldo está indisponível."}
+            </Alert>
+          )}
+
+          <div className="rounded-xl border border-violet-500/15 bg-violet-500/[0.04] p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="shrink-0 rounded-lg bg-violet-500/10 p-1.5 text-violet-300">
+                  {icons.exchange}
+                </span>
+                <div>
+                  <p className="text-sm text-zinc-300">
+                    {data.usdBrl === null ? (
+                      "Cotação indisponível"
+                    ) : (
+                      <>
+                        US${" "}
+                        <strong className="font-heading tabular-nums text-white">
+                          1 = R${" "}
+                          {data.usdBrl.toLocaleString("pt-BR", {
+                            minimumFractionDigits: 4,
+                            maximumFractionDigits: 6,
+                          })}
+                        </strong>
+                      </>
+                    )}
+                  </p>
+                  {data.rateSource === "frankfurter" && (
+                    <p className="mt-0.5 text-xs text-zinc-500">
+                      <a
+                        href="https://frankfurter.dev/v1/"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-violet-400 underline decoration-violet-400/40 underline-offset-2 transition-colors hover:text-violet-300"
+                      >
+                        Frankfurter
+                      </a>{" "}
+                      · {data.rateDate} ·{" "}
+                      {isCurrentMonth
+                        ? "última cotação publicada, atualizada a cada hora"
+                        : "referência do último dia útil do mês"}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <span
+                className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+                  data.rateSource === "manual"
+                    ? "border-violet-500/25 bg-violet-500/10 text-violet-300"
+                    : "border-blue-500/20 bg-blue-500/10 text-blue-300"
+                }`}
+              >
+                {data.rateSource === "manual" ? "Cotação manual" : "Cotação automática"}
+              </span>
+            </div>
+
+            {data.rateError && (
+              <p role="alert" className="mt-3 flex flex-wrap items-center gap-2 text-sm text-amber-300">
+                {data.rateError}
+                <button className={ghostButton} onClick={() => setRevision((n) => n + 1)}>
+                  Tentar novamente
+                </button>
+              </p>
+            )}
+
+            <details className="group mt-3 border-t border-white/5 pt-3">
+              <summary className="cursor-pointer list-none text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-200">
+                <span className="inline-block transition-transform group-open:rotate-90">›</span> Ajustar cotação
+                manualmente
+              </summary>
+              <form
+                key={`${month}:${data.usdBrl}`}
+                className="mt-3 flex flex-wrap items-end gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const form = new FormData(event.currentTarget);
+                  void save({ action: "rate", month, usdBrl: Number(form.get("rate")) });
+                }}
+              >
+                <label className="text-xs text-zinc-400">
+                  Cotação de referência do mês: US$ 1 em R$
+                  <input
+                    required
+                    type="number"
+                    min="0.000001"
+                    max="999"
+                    step="0.000001"
+                    name="rate"
+                    defaultValue={data.usdBrl || ""}
+                    className={`ml-2 w-32 tabular-nums ${field}`}
+                  />
+                </label>
+                <button
+                  disabled={saving}
+                  className="rounded-lg bg-violet-500/15 px-3 py-1.5 text-xs font-medium text-violet-300 transition-colors hover:bg-violet-500/25 disabled:opacity-50"
+                >
+                  Salvar cotação manual
+                </button>
+                <p className="w-full text-xs text-zinc-500">
+                  Ao salvar, esta cotação fica fixa para o mês e tem prioridade sobre a consulta automática.
+                </p>
+              </form>
+            </details>
+          </div>
+
+          <div>
+            <SectionTitle
+              tone="rose"
+              icon={icons.media}
+              title="Mídia importada automaticamente"
+              hint={`Somente as ${data.monitoredCampaigns} campanhas vinculadas no painel. Não lance esses mesmos gastos como despesas manuais.`}
+              total={totalsLabel(mediaTotals)}
+            />
+            {data.media.length ? (
+              <ul className="space-y-1.5">
+                {data.media.map((row, index) => {
+                  const max = mediaMax[row.currency] || 0;
+                  const width = max > 0 ? Math.max(3, (Math.abs(row.spend) / max) * 100) : 0;
+                  return (
+                    <li
+                      key={`${row.campaign}:${row.currency}:${index}`}
+                      className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2.5 transition-colors hover:border-rose-500/20 hover:bg-white/[0.04]"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="min-w-0 truncate text-sm text-zinc-200">{row.campaign}</span>
+                        <span className="shrink-0 text-sm font-medium tabular-nums text-white">
+                          {fmt(row.spend, row.currency)}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/5">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-rose-500/60 to-rose-400"
+                          style={{ width: `${width}%` }}
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="rounded-lg border border-dashed border-white/10 px-3 py-4 text-center text-sm text-zinc-500">
+                Nenhum gasto de mídia importado neste mês.
+              </p>
+            )}
+          </div>
+
+          <details className="group overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] transition-colors hover:border-violet-500/25">
+            <summary className="flex cursor-pointer list-none items-center gap-2.5 px-3.5 py-3 text-sm font-medium text-zinc-200">
+              <span className="rounded-lg bg-violet-500/10 p-1.5 text-violet-400">{icons.plus}</span>
+              Registrar outra despesa
+              <span className="ml-auto text-xs text-zinc-500 transition-transform group-open:rotate-90">›</span>
+            </summary>
+            <form
+              className="grid gap-3 border-t border-white/5 p-3.5 sm:grid-cols-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const form = event.currentTarget;
+                const values = new FormData(form);
+                void save(Object.fromEntries(values), form);
+              }}
+            >
+              <label className="text-xs text-zinc-400">
+                Descrição
+                <input
+                  required
+                  maxLength={200}
+                  name="description"
+                  className={`mt-1 block w-full ${field}`}
+                  placeholder="Ex.: assinatura de ferramenta"
+                />
+              </label>
+              <label className="text-xs text-zinc-400">
+                Data
+                <input
+                  required
+                  type="date"
+                  name="date"
+                  defaultValue={isCurrentMonth ? toBrazilDateStr() : `${month}-01`}
+                  max={toBrazilDateStr()}
+                  className={`mt-1 block w-full [color-scheme:dark] ${field}`}
+                />
+              </label>
+              <label className="text-xs text-zinc-400">
+                Valor
+                <input
+                  required
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  name="amount"
+                  className={`mt-1 block w-full tabular-nums ${field}`}
+                />
+              </label>
+              <label className="text-xs text-zinc-400">
+                Moeda
+                <select name="currency" className={`mt-1 block w-full ${field}`}>
+                  <option>BRL</option>
+                  <option>USD</option>
+                </select>
+              </label>
+              <label className="text-xs text-zinc-400">
+                Categoria
+                <select name="category" className={`mt-1 block w-full ${field}`}>
+                  {Object.entries(categories).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                disabled={saving}
+                className="self-end rounded-lg bg-violet-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-600 disabled:opacity-50"
+              >
+                {saving ? "Salvando…" : "Salvar despesa"}
+              </button>
+            </form>
+          </details>
+
+          {message && (
+            <p
+              role="status"
+              className={`rounded-lg border px-3 py-2 text-sm ${
+                message === "Salvo."
+                  ? "border-emerald-500/20 bg-emerald-500/[0.06] text-emerald-300"
+                  : "border-red-500/20 bg-red-500/[0.06] text-red-300"
+              }`}
+            >
+              {message}
+            </p>
+          )}
+
+          <div>
+            <SectionTitle
+              tone="violet"
+              icon={icons.receipt}
+              title="Despesas manuais"
+              total={totalsLabel(manualTotals)}
+            />
+            {data.expenses.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-white/10 px-3 py-4 text-center text-sm text-zinc-500">
+                Nenhuma despesa manual neste mês.
+              </p>
+            ) : (
+              <ul className="space-y-1.5">
+                {data.expenses.map((expense) => (
+                  <li
+                    key={expense.id}
+                    className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/5 px-3 py-2.5 transition-colors ${
+                      expense.voided_at
+                        ? "bg-white/[0.01] opacity-60"
+                        : "bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]"
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p
+                        className={`truncate text-sm ${
+                          expense.voided_at ? "text-zinc-500 line-through" : "text-zinc-100"
+                        }`}
+                      >
+                        {expense.description}
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+                            categoryStyle[expense.category] ?? categoryStyle.other
+                          }`}
+                        >
+                          {categories[expense.category] ?? expense.category}
+                        </span>
+                        <span className="text-xs tabular-nums text-zinc-500">{expense.occurred_on}</span>
+                        {expense.voided_at && (
+                          <span className="inline-flex items-center rounded-full border border-zinc-500/20 bg-zinc-500/10 px-2 py-0.5 text-[11px] font-medium text-zinc-400">
+                            Cancelada
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`text-sm font-medium tabular-nums ${
+                          expense.voided_at ? "text-zinc-500" : "text-white"
+                        }`}
+                      >
+                        {fmt(expense.amount, expense.currency)}
+                      </span>
+                      <button
+                        disabled={saving}
+                        className="rounded-lg px-2 py-1 text-xs font-medium text-zinc-400 transition-colors hover:bg-white/5 hover:text-violet-300 disabled:opacity-50"
+                        onClick={() => void save({ action: expense.voided_at ? "restore" : "void", id: expense.id })}
+                      >
+                        {expense.voided_at ? "Restaurar" : "Cancelar"}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
 }
