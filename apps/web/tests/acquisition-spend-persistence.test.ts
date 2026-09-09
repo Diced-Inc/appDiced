@@ -17,16 +17,38 @@ describe("spend is independent from attribution", () => {
     mocks.meta.mockResolvedValue([{ date: "2026-09-30", spend: 6, impressions: 100, reach: 90, clicks: 10, installs: 2 }]);
     mocks.upsert.mockResolvedValue(undefined);
   });
-  it("persists a whole month of Meta spend even if GA4 fails, without overwriting revenue", async () => {
+  it("persists reported Meta spend even if GA4 fails, without overwriting revenue", async () => {
     mocks.ga4.mockRejectedValue(new Error("GA4 unavailable"));
     const result = await syncAcquisition("owner");
     expect(mocks.upsert).toHaveBeenCalledTimes(1);
     const [, table, rows, conflict] = mocks.upsert.mock.calls[0]!;
     expect(table).toBe("marketing_daily_metrics"); expect(conflict).toBe("integration_id,date");
-    expect(rows).toHaveLength(30);
-    expect(rows[29]).toMatchObject({ date: "2026-09-30", spend: 6, user_id: "owner" });
-    expect(rows[29]).not.toHaveProperty("attributed_total_revenue");
+    expect(rows[0]).toMatchObject({ date: "2026-09-30", spend: 6, user_id: "owner" });
+    expect(rows[0]).not.toHaveProperty("attributed_total_revenue");
     expect("errors" in result && result.errors).toContain("campaign: GA4 unavailable");
+  });
+
+  it("only writes spend for days Meta actually reported", async () => {
+    // A API de insights não devolve linha para dia sem entrega. Escrever 0 na janela
+    // inteira apagaria o gasto historico numa recoleta longa — e ele alimenta o Banco.
+    mocks.ga4.mockRejectedValue(new Error("GA4 unavailable"));
+    await syncAcquisition("owner");
+    const rows = mocks.upsert.mock.calls[0]![2] as Record<string, unknown>[];
+    expect(rows).toHaveLength(1);
+    expect(rows.every(r => r.date === "2026-09-30")).toBe(true);
+  });
+
+  it("keeps Meta columns out of the revenue upsert", async () => {
+    // Se um dia tem GA4 e nao tem Meta, repetir as colunas da Meta aqui zeraria o gasto.
+    mocks.ga4.mockResolvedValue({
+      utm: [{ date: "2026-09-15", installs: 1, adRevenue: 2, purchaseRevenue: 0, totalRevenue: 2, adImpressions: 4 }],
+      facebookReferral: [], thresholded: false,
+    });
+    await syncAcquisition("owner");
+    const revenueRows = mocks.upsert.mock.calls[1]![2] as Record<string, unknown>[];
+    expect(revenueRows[0]).toMatchObject({ date: "2026-09-15", attributed_total_revenue: 2 });
+    expect(revenueRows[0]).not.toHaveProperty("spend");
+    expect(revenueRows[0]).not.toHaveProperty("meta_impressions");
   });
   it("does not replace recorded spend with zero when Meta fails", async () => {
     mocks.meta.mockRejectedValue(new Error("Meta unavailable"));

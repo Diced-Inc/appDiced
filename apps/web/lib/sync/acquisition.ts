@@ -125,14 +125,23 @@ export async function syncAcquisition(
       const metaByDate = combineMeta(metaRows);
       // Persist actual spend before GA4: an attribution failure must not lose bank expenses.
       // Partial upsert preserves previously collected revenue; the integration error signals stale GA4.
-      await chunkedUpsert(supabase, "marketing_daily_metrics", dateSequence(range.from, range.to).map(date => {
-        const meta = metaByDate.get(date);
-        return { integration_id: integration.id, user_id: userId, app_id: integration.app_id,
-          date, currency: integration.currency, spend: round4(meta?.spend ?? 0),
-          meta_impressions: meta?.impressions ?? 0, meta_reach: meta?.reach ?? 0,
-          meta_clicks: meta?.clicks ?? 0, meta_installs: meta?.installs ?? 0,
-          synced_at: new Date().toISOString() };
-      }), "integration_id,date");
+      //
+      // Só os dias que a Meta reportou. A API de insights não devolve linha para dia sem
+      // entrega, então gravar `?? 0` em toda a janela apagaria o gasto histórico numa
+      // recoleta longa — e esse gasto alimenta a mídia importada do Banco.
+      const spendRows = dateSequence(range.from, range.to)
+        .filter((date) => metaByDate.has(date))
+        .map(date => {
+          const meta = metaByDate.get(date)!;
+          return { integration_id: integration.id, user_id: userId, app_id: integration.app_id,
+            date, currency: integration.currency, spend: round4(meta.spend),
+            meta_impressions: meta.impressions, meta_reach: meta.reach,
+            meta_clicks: meta.clicks, meta_installs: meta.installs,
+            synced_at: new Date().toISOString() };
+        });
+      if (spendRows.length > 0) {
+        await chunkedUpsert(supabase, "marketing_daily_metrics", spendRows, "integration_id,date");
+      }
       const analytics = await fetchGA4AcquisitionBreakdown(
           userId,
           {
@@ -154,26 +163,22 @@ export async function syncAcquisition(
       const upserts = dateSequence(range.from, range.to)
         .filter((date) => utmByDate.has(date) || facebookReferralByDate.has(date))
         .map((date) => {
-        const meta = metaByDate.get(date);
         const utm = utmByDate.get(date);
         const facebookReferral = facebookReferralByDate.get(date);
+        // Sem colunas da Meta: elas já foram gravadas acima, e repeti-las aqui com
+        // `?? 0` zeraria o gasto de um dia que o GA4 reportou e a Meta não.
         return {
           integration_id: integration.id,
           user_id: userId,
           app_id: integration.app_id,
           date,
           currency: integration.currency,
-          spend: round4(meta?.spend ?? 0),
           attributed_ad_revenue: round4(utm?.adRevenue ?? 0),
           attributed_purchase_revenue: round4(utm?.purchaseRevenue ?? 0),
           attributed_total_revenue: round4(utm?.totalRevenue ?? 0),
           facebook_referral_ad_revenue: round4(facebookReferral?.adRevenue ?? 0),
           facebook_referral_purchase_revenue: round4(facebookReferral?.purchaseRevenue ?? 0),
           facebook_referral_total_revenue: round4(facebookReferral?.totalRevenue ?? 0),
-          meta_impressions: meta?.impressions ?? 0,
-          meta_reach: meta?.reach ?? 0,
-          meta_clicks: meta?.clicks ?? 0,
-          meta_installs: meta?.installs ?? 0,
           ga4_installs: utm?.installs ?? 0,
           facebook_referral_installs: facebookReferral?.installs ?? 0,
           publisher_ad_impressions: utm?.adImpressions ?? 0,

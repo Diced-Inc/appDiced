@@ -19,9 +19,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // ?lookbackDays= permite recoleta administrativa de um histórico maior que o
+  // da rotina diária (teto de 366). Sem o parâmetro, o cron segue em 14 dias.
+  const requested = Number(req.nextUrl.searchParams.get("lookbackDays"));
+  const lookbackDays = Number.isFinite(requested) && requested > 0 ? Math.min(Math.floor(requested), 366) : 14;
+
   const results: Record<string, unknown> = {};
   for (const userId of await listConnectedAcquisitionUsers()) {
-    results[userId] = await syncAcquisition(userId, { lookbackDays: 14 });
+    results[userId] = await syncAcquisition(userId, { lookbackDays });
   }
   return NextResponse.json({ success: true, results });
 }
