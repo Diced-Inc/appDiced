@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { AcquisitionDashboard } from "@/components/acquisition-dashboard";
 import { Header } from "@/components/header";
 import { CampaignPeriodSelector } from "@/components/campaign-period-selector";
-import { listMetaCampaigns } from "@/lib/meta/ads";
+import { listMetaCampaignsCached } from "@/lib/meta/ads";
 import { SyncButton } from "@/components/sync-button";
 import { getAcquisitionData } from "@/lib/acquisition";
 import { campaignPeriod } from "@/lib/campaign-period";
@@ -16,7 +16,7 @@ export default async function AcquisitionPage({ searchParams }: { searchParams: 
   const period = campaignPeriod(await searchParams);
   const data = await getAcquisitionData(userId, period.range);
   const accounts = [...new Set(data.integrations.map(i => i.metaAdAccountId))];
-  const results = await Promise.allSettled(accounts.map(id => listMetaCampaigns(userId, id)));
+  const results = await Promise.allSettled(accounts.map(id => listMetaCampaignsCached(userId, id)));
   const campaigns = results.flatMap(result => result.status === "fulfilled" ? result.value : []);
   const metaUnavailable = results.some(result => result.status === "rejected");
 

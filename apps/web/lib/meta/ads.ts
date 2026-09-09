@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { unstable_cache } from "next/cache";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 const graphVersion = process.env.META_GRAPH_API_VERSION?.trim() || "v26.0";
@@ -247,6 +248,21 @@ export async function listMetaAdAccounts(userId: string): Promise<MetaAdAccount[
     timezoneName: row.timezone_name || "",
     accountStatus: row.account_status ?? 0,
   }));
+}
+
+/** Tag de cache da listagem de campanhas — invalidar ao mudar status na Meta. */
+export const metaCampaignsTag = (userId: string) => `meta-campaigns:${userId}`;
+
+/**
+ * Status e orçamento na Meta não dependem do período do painel. Sem cache, cada
+ * troca de período refazia a chamada à Graph API e a tela inteira esperava por ela.
+ */
+export function listMetaCampaignsCached(userId: string, accountId: string): Promise<MetaCampaign[]> {
+  return unstable_cache(
+    () => listMetaCampaigns(userId, accountId),
+    ["meta-campaigns", userId, accountId],
+    { revalidate: 120, tags: [metaCampaignsTag(userId)] }
+  )();
 }
 
 export async function listMetaCampaigns(userId: string, accountId: string): Promise<MetaCampaign[]> {

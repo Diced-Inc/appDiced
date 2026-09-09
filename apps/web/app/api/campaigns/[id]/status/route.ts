@@ -1,7 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import { setMetaCampaignStatus } from "@/lib/meta/ads";
+import { metaCampaignsTag, setMetaCampaignStatus } from "@/lib/meta/ads";
+import { revalidateTag } from "next/cache";
 
 export const maxDuration = 60;
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -20,6 +21,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     if (error) throw new Error("Não foi possível consultar a campanha.");
     if (!integration) return json({ error: "Campanha não encontrada." }, 404);
     const campaign = await setMetaCampaignStatus(userId, integration.meta_ad_account_id, integration.meta_campaign_id, body.status, body.expectedStatus);
+    // Derruba a listagem cacheada para o novo status aparecer no refresh seguinte.
+    // Como o histórico, uma falha aqui não invalida uma mutação já confirmada na Meta.
+    try { revalidateTag(metaCampaignsTag(userId), { expire: 0 }); } catch { /* cache não invalidado; expira sozinho em 120s */ }
     // A history failure must not turn a confirmed Meta mutation into an apparent failure.
     let warning: string | undefined;
     try {
